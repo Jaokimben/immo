@@ -264,9 +264,28 @@ def index():
 
 @app.route('/recherche')
 def recherche():
-    max_budget = request.args.get('max_budget')
-    min_surface = request.args.get('min_surface')
-    return jsonify({'max_budget': max_budget, 'min_surface': min_surface})
+    try:
+        max_budget = request.args.get('max_budget')
+        min_surface = request.args.get('min_surface')
+        
+        query = Annonce.query
+        if max_budget:
+            query = query.filter(Annonce.prix <= max_budget)
+        if min_surface:
+            query = query.filter(Annonce.surface >= min_surface)
+            
+        annonces = query.all()
+        return jsonify([{
+            'titre': a.titre,
+            'prix': a.prix,
+            'surface': a.surface,
+            'localisation': a.localisation,
+            'url': a.url
+        } for a in annonces])
+        
+    except Exception as e:
+        logger.error(f"Recherche error: {str(e)}")
+        return jsonify([])
 
 @app.route('/suggestions')
 def suggestions():
