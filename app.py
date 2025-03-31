@@ -4,14 +4,13 @@ from selenium.webdriver.chrome.options import Options
 import os
 import logging
 from webdriver_manager.chrome import ChromeDriverManager
-from webdriver_manager.core.utils import ChromeType
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 try:
-    # Configure Chrome options for Chromium
+    # Configure Chrome options
     chrome_options = Options()
     chrome_options.add_argument("--headless=new")
     chrome_options.add_argument("--no-sandbox")
@@ -20,14 +19,14 @@ try:
     chrome_options.binary_location = "/usr/bin/chromium-browser"
 
     # Use webdriver_manager to handle ChromeDriver
-    service = Service(ChromeDriverManager(chrome_type=ChromeType.CHROMIUM).install())
+    service = Service(ChromeDriverManager().install())
 
     # Initialize WebDriver
     driver = webdriver.Chrome(
         service=service,
         options=chrome_options
     )
-    logger.info("Chromium WebDriver initialized successfully")
+    logger.info("WebDriver initialized successfully")
 
 except Exception as e:
     logger.error(f"Failed to initialize WebDriver: {str(e)}")
