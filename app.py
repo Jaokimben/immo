@@ -48,28 +48,43 @@ def scrap_seloger():
     driver = webdriver.Chrome(service=service, options=chrome_options)
     
     try:
-        driver.get('https://www.seloger.com/recherche/achat/')
-        driver.implicitly_wait(10)
-        
-        soup = BeautifulSoup(driver.page_source, 'html.parser')
-        annonces = soup.find_all('div', class_='c-pa-list')
-        
-        for annonce in annonces:
-            titre = annonce.find('div', class_='c-pa-title').text.strip()
-            prix = annonce.find('div', class_='c-pa-price').text.strip()
-            surface = annonce.find('div', class_='c-pa-criterion').text.strip()
-            localisation = annonce.find('div', class_='c-pa-city').text.strip()
+        # Ajout de plusieurs villes principales pour avoir plus de données
+        villes = ['Paris', 'Lyon', 'Marseille', 'Bordeaux', 'Toulouse', 'Nantes', 'Lille']
+        for ville in villes:
+            url = f'https://www.seloger.com/recherche/achat/{ville}/'
+            driver.get(url)
+            driver.implicitly_wait(10)
             
-            if not Annonce.query.filter_by(titre=titre).first():
-                nouvelle_annonce = Annonce(
-                    titre=titre,
-                    prix=prix,
-                    surface=surface,
-                    localisation=localisation,
-                    source='SeLoger',
-                    url=annonce.find('a')['href']
-                )
-                db.session.add(nouvelle_annonce)
+            soup = BeautifulSoup(driver.page_source, 'html.parser')
+            annonces = soup.find_all('div', class_='c-pa-list')
+            
+            for annonce in annonces:
+                titre = annonce.find('div', class_='c-pa-title').text.strip()
+                prix = annonce.find('div', class_='c-pa-price').text.strip()
+                surface = annonce.find('div', class_='c-pa-criterion').text.strip()
+                
+                # Amélioration de l'extraction de la localisation
+                localisation_div = annonce.find('div', class_='c-pa-city')
+                if localisation_div:
+                    localisation = localisation_div.text.strip()
+                    # Nettoyage de la localisation
+                    localisation = localisation.replace('\n', ' ').replace('  ', ' ').strip()
+                else:
+                    localisation = ville
+                
+                if not Annonce.query.filter_by(titre=titre).first():
+                    nouvelle_annonce = Annonce(
+                        titre=titre,
+                        prix=prix,
+                        surface=surface,
+                        localisation=localisation,
+                        source='SeLoger',
+                        url=annonce.find('a')['href']
+                    )
+                    db.session.add(nouvelle_annonce)
+            
+            # Petit délai entre chaque ville pour éviter d'être bloqué
+            time.sleep(2)
         
         db.session.commit()
     
