@@ -657,11 +657,11 @@ def actualiser():
         print("Début de l'actualisation des annonces")
         print(f"Nombre d'annonces avant actualisation : {Annonce.query.count()}")
         
-        scrap_seloger()
-        print(f"Nombre d'annonces après SeLoger : {Annonce.query.count()}")
-        
         scrap_pap()
         print(f"Nombre d'annonces après PAP : {Annonce.query.count()}")
+        
+        scrap_seloger()
+        print(f"Nombre d'annonces après SeLoger : {Annonce.query.count()}")
         
         scrap_leboncoin()
         print(f"Nombre d'annonces après LeBonCoin : {Annonce.query.count()}")
