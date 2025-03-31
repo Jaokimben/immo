@@ -9,6 +9,9 @@ import time
 import random
 import re
 from dotenv import load_dotenv
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from webdriver_manager.chrome import ChromeDriverManager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -45,6 +48,29 @@ class Annonce(db.Model):
 with app.app_context():
     db.create_all()
 
+def configure_browser():
+    """Configure headless Chrome for Railway with proper resource management"""
+    options = Options()
+    options.add_argument("--headless=new")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--window-size=1920,1080")
+    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    options.add_experimental_option("useAutomationExtension", False)
+    return webdriver.Chrome(options=options)
+    """Get a configured browser instance with resource cleanup"""
+    options = Options()
+    options.add_argument("--headless=new")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--window-size=1920,1080")
+    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+    return webdriver.Chrome(options=options)
+
 def scrape_with_requests(url, headers=None, expected_format='html'):
     """Browser-agnostic scraping using requests"""
     try:
@@ -73,10 +99,17 @@ def scrape_with_requests(url, headers=None, expected_format='html'):
 
         # First try JSON parsing if expected
         if expected_format == 'json':
+            # Validate JSON content type before parsing
+            if 'application/json' not in response.headers.get('Content-Type', '').lower():
+                logger.error(f"JSON expected but got Content-Type: {response.headers.get('Content-Type')}")
+                logger.debug(f"Response sample: {response.text[:100]}")
+                raise ValueError("Response is not JSON")
             try:
                 return response.json()
-            except ValueError:
-                logger.warning(f"Failed to parse JSON from {url}, trying HTML")
+            except ValueError as e:
+                logger.error(f"Failed to parse JSON from {url}: {str(e)}")
+                logger.debug(f"Invalid JSON content: {response.text[:200]}")
+                raise
 
         # Then try HTML parsing
         try:
@@ -93,28 +126,60 @@ def scrape_with_requests(url, headers=None, expected_format='html'):
         raise
 
 def get_paris_suggestions():
-    """Get Paris suggestions from the website"""
-    url = "https://www.seloger.com/suggestions/paris"
-    
-    # 1. Try dedicated JSON endpoint
+    """Get Paris suggestions from the website with Selenium fallback"""
     json_url = "https://api.seloger.com/suggestions/paris"
+    result = None
+    
+    # Try API first with enhanced headers
     try:
-        response = requests.get(
+        data = scrape_with_requests(
             json_url,
             headers={
                 'Accept': 'application/json',
-                'User-Agent': 'Mozilla/5.0'
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept-Language': 'fr-FR,fr;q=0.9',
+                'Referer': 'https://www.seloger.com/'
             },
-            timeout=5
+            expected_format='json'
         )
-        response.raise_for_status()
-        data = response.json()
         if isinstance(data, dict) and data.get('suggestions'):
             return data['suggestions'][:10]
     except Exception as json_error:
-        logger.info(f"JSON API failed, falling back to HTML: {str(json_error)}")
-
-    # 2. Fallback to HTML scraping
+        logger.warning(f"API request failed: {str(json_error)}")
+    
+    # Fallback to browser automation
+    browser = None
+    try:
+        browser = configure_browser()
+        browser.get("https://www.seloger.com/suggestions/paris")
+        time.sleep(2 + random.uniform(0.5, 1.5))  # Randomized delay
+        
+        # Use multiple selector strategies
+        selectors = [
+            (By.CSS_SELECTOR, ".suggestions-list li"),
+            (By.CSS_SELECTOR, "[data-testid='suggestion-item']"),
+            (By.XPATH, "//ul/li/a")
+        ]
+        
+        suggestions = []
+        for selector in selectors:
+            try:
+                elements = browser.find_elements(*selector)
+                if elements:
+                    suggestions.extend([e.text.strip() for e in elements if e.text.strip()])
+                    if suggestions:
+                        break
+            except NoSuchElementException:
+                continue
+        
+        return list(set(suggestions))[:10]
+        
+    except Exception as e:
+        logger.error(f"Browser fallback failed: {str(e)}")
+        return []
+    finally:
+        if browser:
+            browser.quit()
     try:
         response = requests.get(
             url,
@@ -124,8 +189,10 @@ def get_paris_suggestions():
         response.raise_for_status()
         
         # Check if response is HTML before parsing
-        if 'text/html' not in response.headers.get('Content-Type', ''):
-            raise ValueError("Non-HTML response received")
+        content_type = response.headers.get('Content-Type', '').lower()
+        if 'text/html' not in content_type and 'application/json' not in content_type:
+            logger.warning(f"Unexpected content type: {content_type}")
+            raise ValueError(f"Unsupported content type: {content_type}")
             
         soup = BeautifulSoup(response.content, 'html.parser')
         suggestions = []
@@ -212,5 +279,7 @@ def suggestions():
             return jsonify([])
     return jsonify([])
 
+# Railway requires this specific host binding
 if __name__ == '__main__':
-    app.run()
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
