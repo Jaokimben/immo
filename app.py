@@ -71,15 +71,19 @@ def scrape_with_requests(url, headers=None, expected_format='html'):
         )
         response.raise_for_status()
 
-        # Check content type before parsing
-        content_type = response.headers.get('Content-Type', '')
-        if 'json' in content_type or expected_format == 'json':
+        # First try JSON parsing if expected
+        if expected_format == 'json':
             try:
                 return response.json()
             except ValueError:
-                # Fall back to HTML parsing if JSON parsing fails
-                return BeautifulSoup(response.content, 'html.parser')
-        return BeautifulSoup(response.content, 'html.parser')
+                logger.warning(f"Failed to parse JSON from {url}, trying HTML")
+
+        # Then try HTML parsing
+        try:
+            return BeautifulSoup(response.content, 'html.parser')
+        except Exception as e:
+            logger.error(f"Failed to parse HTML from {url}: {str(e)}")
+            raise ValueError(f"Could not parse response as either JSON or HTML")
         
     except requests.exceptions.RequestException as e:
         logger.error(f"Request failed for {url}: {str(e)}")
@@ -92,16 +96,50 @@ def get_paris_suggestions():
     """Get Paris suggestions from the website"""
     try:
         url = "https://www.seloger.com/suggestions/paris"
+        
+        # First attempt - try direct JSON API
+        try:
+            response = requests.get(
+                url,
+                headers={
+                    'Accept': 'application/json',
+                    'User-Agent': 'Mozilla/5.0'
+                },
+                timeout=10
+            )
+            if response.status_code == 200:
+                try:
+                    data = response.json()
+                    if isinstance(data, dict) and 'suggestions' in data:
+                        return data['suggestions']
+                except ValueError:
+                    pass  # Fall through to HTML parsing
+        except requests.RequestException:
+            pass  # Fall through to HTML parsing
+
+        # Second attempt - HTML parsing fallback
         soup = scrape_with_requests(url)
-        
         suggestions = []
-        # Try different selectors to handle potential website changes
-        suggestion_items = soup.select('.suggestion-item, .autocomplete-item, [class*="suggestion"]')
         
-        for item in suggestion_items:
-            suggestions.append(item.get_text(strip=True))
-            
-        return suggestions
+        # Try multiple selector patterns
+        selectors = [
+            '.suggestion-item',
+            '.autocomplete-item',
+            '[class*="suggestion"]',
+            '[class*="auto-complete"]',
+            '[class*="predictive"]',
+            'li > a',  # Common pattern for suggestion lists
+            'div > a'   # Another common pattern
+        ]
+        
+        for selector in selectors:
+            items = soup.select(selector)
+            if items:
+                suggestions.extend(item.get_text(strip=True) for item in items if item.get_text(strip=True))
+                if suggestions:  # Stop at first successful selector
+                    break
+                    
+        return suggestions[:10]  # Return max 10 suggestions
         
     except Exception as e:
         logger.error(f"Error getting Paris suggestions: {str(e)}")
