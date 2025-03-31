@@ -119,6 +119,20 @@ def actualiser():
     scrap_seloger()
     return jsonify({'status': 'success'})
 
+@app.route('/suggestions')
+def suggestions():
+    query = request.args.get('q', '').lower()
+    if len(query) < 2:
+        return jsonify([])
+    
+    suggestions = db.session.query(Annonce.localisation)\
+        .filter(Annonce.localisation.ilike(f"%{query}%"))\
+        .distinct()\
+        .limit(5)\
+        .all()
+    
+    return jsonify([s[0] for s in suggestions])
+
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
     app.run(host='0.0.0.0', port=port) 
