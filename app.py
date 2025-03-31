@@ -1,29 +1,26 @@
-from selenium import webdriver
-from selenium.webdriver.firefox.options import Options
+import requests
+from bs4 import BeautifulSoup
 import logging
-from selenium.webdriver.firefox.service import Service
-from webdriver_manager.firefox import GeckoDriverManager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def init_webdriver():
-    """Initialize WebDriver using Railway's native Firefox"""
+def scrape_with_requests(url):
+    """Browser-agnostic scraping using requests"""
     try:
-        # Configure Firefox options
-        firefox_options = Options()
-        firefox_options.add_argument("--headless")
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
         
-        # Use Railway's native Firefox with automatic driver management
-        driver = webdriver.Firefox(
-            service=Service(GeckoDriverManager().install()),
-            options=firefox_options
-        )
-        logger.info("WebDriver initialized successfully")
-        return driver
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        
+        soup = BeautifulSoup(response.text, 'html.parser')
+        logger.info(f"Successfully scraped {url}")
+        return soup
     except Exception as e:
-        logger.error(f"Failed to initialize WebDriver: {str(e)}")
+        logger.error(f"Scraping failed: {str(e)}")
         raise
         
         # Initialize WebDriver with automatic driver management
