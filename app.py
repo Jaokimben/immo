@@ -74,7 +74,7 @@ def scrap_seloger():
                 else:
                     localisation = ville
                 
-                if not Annonce.query.filter_by(titre=titre).first():
+                if not Annonce.query.filter_by(titre=titre, source='SeLoger').first():
                     nouvelle_annonce = Annonce(
                         titre=titre,
                         prix=prix,
@@ -86,6 +86,182 @@ def scrap_seloger():
                     db.session.add(nouvelle_annonce)
             
             # Petit délai entre chaque ville pour éviter d'être bloqué
+            time.sleep(2)
+        
+        db.session.commit()
+    
+    finally:
+        driver.quit()
+
+def scrap_pap():
+    chrome_options = Options()
+    chrome_options.add_argument('--headless')
+    chrome_options.add_argument('--no-sandbox')
+    chrome_options.add_argument('--disable-dev-shm-usage')
+    chrome_options.binary_location = os.getenv('GOOGLE_CHROME_BIN')
+    
+    service = Service(executable_path=os.getenv('CHROMEDRIVER_PATH'))
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+    
+    try:
+        villes = ['Paris', 'Lyon', 'Marseille', 'Bordeaux', 'Toulouse', 'Nantes', 'Lille']
+        for ville in villes:
+            url = f'https://www.pap.fr/annonce/achat-immobilier-{ville.lower()}'
+            driver.get(url)
+            driver.implicitly_wait(10)
+            
+            soup = BeautifulSoup(driver.page_source, 'html.parser')
+            annonces = soup.find_all('div', class_='search-list-item')
+            
+            for annonce in annonces:
+                titre = annonce.find('h2', class_='title').text.strip()
+                prix = annonce.find('div', class_='price').text.strip()
+                surface = annonce.find('div', class_='surface').text.strip()
+                localisation = annonce.find('div', class_='location').text.strip()
+                
+                if not Annonce.query.filter_by(titre=titre, source='PAP').first():
+                    nouvelle_annonce = Annonce(
+                        titre=titre,
+                        prix=prix,
+                        surface=surface,
+                        localisation=localisation,
+                        source='PAP',
+                        url=annonce.find('a')['href']
+                    )
+                    db.session.add(nouvelle_annonce)
+            
+            time.sleep(2)
+        
+        db.session.commit()
+    
+    finally:
+        driver.quit()
+
+def scrap_leboncoin():
+    chrome_options = Options()
+    chrome_options.add_argument('--headless')
+    chrome_options.add_argument('--no-sandbox')
+    chrome_options.add_argument('--disable-dev-shm-usage')
+    chrome_options.binary_location = os.getenv('GOOGLE_CHROME_BIN')
+    
+    service = Service(executable_path=os.getenv('CHROMEDRIVER_PATH'))
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+    
+    try:
+        villes = ['Paris', 'Lyon', 'Marseille', 'Bordeaux', 'Toulouse', 'Nantes', 'Lille']
+        for ville in villes:
+            url = f'https://www.leboncoin.fr/recherche?category=9&locations={ville}'
+            driver.get(url)
+            driver.implicitly_wait(10)
+            
+            soup = BeautifulSoup(driver.page_source, 'html.parser')
+            annonces = soup.find_all('div', class_='styles_adCard')
+            
+            for annonce in annonces:
+                titre = annonce.find('h3', class_='styles_title').text.strip()
+                prix = annonce.find('span', class_='styles_price').text.strip()
+                surface = annonce.find('span', class_='styles_surface').text.strip()
+                localisation = annonce.find('span', class_='styles_location').text.strip()
+                
+                if not Annonce.query.filter_by(titre=titre, source='LeBonCoin').first():
+                    nouvelle_annonce = Annonce(
+                        titre=titre,
+                        prix=prix,
+                        surface=surface,
+                        localisation=localisation,
+                        source='LeBonCoin',
+                        url=annonce.find('a')['href']
+                    )
+                    db.session.add(nouvelle_annonce)
+            
+            time.sleep(2)
+        
+        db.session.commit()
+    
+    finally:
+        driver.quit()
+
+def scrap_orpi():
+    chrome_options = Options()
+    chrome_options.add_argument('--headless')
+    chrome_options.add_argument('--no-sandbox')
+    chrome_options.add_argument('--disable-dev-shm-usage')
+    chrome_options.binary_location = os.getenv('GOOGLE_CHROME_BIN')
+    
+    service = Service(executable_path=os.getenv('CHROMEDRIVER_PATH'))
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+    
+    try:
+        villes = ['Paris', 'Lyon', 'Marseille', 'Bordeaux', 'Toulouse', 'Nantes', 'Lille']
+        for ville in villes:
+            url = f'https://www.orpi.com/recherche/achat-immobilier-{ville.lower()}'
+            driver.get(url)
+            driver.implicitly_wait(10)
+            
+            soup = BeautifulSoup(driver.page_source, 'html.parser')
+            annonces = soup.find_all('div', class_='property-card')
+            
+            for annonce in annonces:
+                titre = annonce.find('h2', class_='property-title').text.strip()
+                prix = annonce.find('div', class_='property-price').text.strip()
+                surface = annonce.find('div', class_='property-surface').text.strip()
+                localisation = annonce.find('div', class_='property-location').text.strip()
+                
+                if not Annonce.query.filter_by(titre=titre, source='Orpi').first():
+                    nouvelle_annonce = Annonce(
+                        titre=titre,
+                        prix=prix,
+                        surface=surface,
+                        localisation=localisation,
+                        source='Orpi',
+                        url=annonce.find('a')['href']
+                    )
+                    db.session.add(nouvelle_annonce)
+            
+            time.sleep(2)
+        
+        db.session.commit()
+    
+    finally:
+        driver.quit()
+
+def scrap_logicimmo():
+    chrome_options = Options()
+    chrome_options.add_argument('--headless')
+    chrome_options.add_argument('--no-sandbox')
+    chrome_options.add_argument('--disable-dev-shm-usage')
+    chrome_options.binary_location = os.getenv('GOOGLE_CHROME_BIN')
+    
+    service = Service(executable_path=os.getenv('CHROMEDRIVER_PATH'))
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+    
+    try:
+        villes = ['Paris', 'Lyon', 'Marseille', 'Bordeaux', 'Toulouse', 'Nantes', 'Lille']
+        for ville in villes:
+            url = f'https://www.logic-immo.com/achat-immobilier-{ville.lower()}'
+            driver.get(url)
+            driver.implicitly_wait(10)
+            
+            soup = BeautifulSoup(driver.page_source, 'html.parser')
+            annonces = soup.find_all('div', class_='announcement-card')
+            
+            for annonce in annonces:
+                titre = annonce.find('h3', class_='announcement-title').text.strip()
+                prix = annonce.find('div', class_='announcement-price').text.strip()
+                surface = annonce.find('div', class_='announcement-surface').text.strip()
+                localisation = annonce.find('div', class_='announcement-location').text.strip()
+                
+                if not Annonce.query.filter_by(titre=titre, source='LogicImmo').first():
+                    nouvelle_annonce = Annonce(
+                        titre=titre,
+                        prix=prix,
+                        surface=surface,
+                        localisation=localisation,
+                        source='LogicImmo',
+                        url=annonce.find('a')['href']
+                    )
+                    db.session.add(nouvelle_annonce)
+            
             time.sleep(2)
         
         db.session.commit()
@@ -157,8 +333,15 @@ def recherche():
 
 @app.route('/actualiser')
 def actualiser():
-    scrap_seloger()
-    return jsonify({'status': 'success'})
+    try:
+        scrap_seloger()
+        scrap_pap()
+        scrap_leboncoin()
+        scrap_orpi()
+        scrap_logicimmo()
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)})
 
 @app.route('/suggestions')
 def suggestions():
