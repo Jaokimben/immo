@@ -99,17 +99,17 @@ def scrape_with_requests(url, headers=None, expected_format='html'):
 
         # First try JSON parsing if expected
         if expected_format == 'json':
-            # Validate JSON content type before parsing
-            if 'application/json' not in response.headers.get('Content-Type', '').lower():
-                logger.error(f"JSON expected but got Content-Type: {response.headers.get('Content-Type')}")
-                logger.debug(f"Response sample: {response.text[:100]}")
-                raise ValueError("Response is not JSON")
             try:
+                # First attempt to parse as JSON regardless of content-type
                 return response.json()
-            except ValueError as e:
-                logger.error(f"Failed to parse JSON from {url}: {str(e)}")
-                logger.debug(f"Invalid JSON content: {response.text[:200]}")
-                raise
+            except ValueError:
+                # If JSON parsing fails, check if we got HTML instead
+                if '<!doctype html' in response.text.lower():
+                    logger.warning(f"Received HTML instead of JSON from {url}")
+                    raise ValueError("Received HTML response when expecting JSON")
+                else:
+                    logger.error(f"Invalid JSON content from {url}")
+                    raise
 
         # Then try HTML parsing
         try:
