@@ -45,12 +45,13 @@ class Annonce(db.Model):
 with app.app_context():
     db.create_all()
 
-def scrape_with_requests(url, headers=None):
+def scrape_with_requests(url, headers=None, parse_json=False):
     """Browser-agnostic scraping using requests"""
     try:
         default_headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             'Accept-Language': 'en-US,en;q=0.9',
+            'Accept': 'application/json' if parse_json else 'text/html',
             'Accept-Encoding': 'gzip, deflate, br',
             'Connection': 'keep-alive'
         }
@@ -63,15 +64,38 @@ def scrape_with_requests(url, headers=None):
             timeout=10
         )
         response.raise_for_status()
-        
+
+        if parse_json:
+            return response.json()
         return BeautifulSoup(response.content, 'html.parser')
         
     except requests.exceptions.RequestException as e:
         logger.error(f"Request failed for {url}: {str(e)}")
         raise
+    except ValueError as e:
+        logger.error(f"Failed to parse response from {url}: {str(e)}")
+        raise
     except Exception as e:
         logger.error(f"Scraping error for {url}: {str(e)}")
         raise
+
+def get_paris_suggestions():
+    """Get Paris suggestions from the website"""
+    try:
+        url = "https://www.seloger.com/suggestions/paris"
+        soup = scrape_with_requests(url)
+        
+        suggestions = []
+        suggestion_items = soup.select('.suggestion-item')  # Update selector based on actual HTML
+        
+        for item in suggestion_items:
+            suggestions.append(item.get_text(strip=True))
+            
+        return suggestions
+        
+    except Exception as e:
+        logger.error(f"Error getting Paris suggestions: {str(e)}")
+        return []
 
 def scrap_seloger():
     """Scrape SeLoger using requests"""
@@ -109,6 +133,18 @@ def index():
 @app.route('/recherche')
 def recherche():
     # Search logic here
+    return jsonify([])
+
+@app.route('/suggestions')
+def suggestions():
+    query = request.args.get('q', '').lower()
+    if query == 'paris':
+        try:
+            suggestions = get_paris_suggestions()
+            return jsonify(suggestions)
+        except Exception as e:
+            logger.error(f"Error processing suggestions for Paris: {str(e)}")
+            return jsonify([])
     return jsonify([])
 
 if __name__ == '__main__':
