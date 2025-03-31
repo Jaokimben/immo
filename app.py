@@ -45,13 +45,19 @@ class Annonce(db.Model):
 with app.app_context():
     db.create_all()
 
-def scrape_with_requests(url, headers=None, parse_json=False):
+def scrape_with_requests(url, headers=None, expected_format='html'):
     """Browser-agnostic scraping using requests"""
     try:
+        # Determine content type based on expected format
+        content_type = {
+            'html': 'text/html',
+            'json': 'application/json'
+        }.get(expected_format, 'text/html')
+
         default_headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             'Accept-Language': 'en-US,en;q=0.9',
-            'Accept': 'application/json' if parse_json else 'text/html',
+            'Accept': content_type,
             'Accept-Encoding': 'gzip, deflate, br',
             'Connection': 'keep-alive'
         }
@@ -65,15 +71,18 @@ def scrape_with_requests(url, headers=None, parse_json=False):
         )
         response.raise_for_status()
 
-        if parse_json:
-            return response.json()
+        # Check content type before parsing
+        content_type = response.headers.get('Content-Type', '')
+        if 'json' in content_type or expected_format == 'json':
+            try:
+                return response.json()
+            except ValueError:
+                # Fall back to HTML parsing if JSON parsing fails
+                return BeautifulSoup(response.content, 'html.parser')
         return BeautifulSoup(response.content, 'html.parser')
         
     except requests.exceptions.RequestException as e:
         logger.error(f"Request failed for {url}: {str(e)}")
-        raise
-    except ValueError as e:
-        logger.error(f"Failed to parse response from {url}: {str(e)}")
         raise
     except Exception as e:
         logger.error(f"Scraping error for {url}: {str(e)}")
@@ -86,7 +95,8 @@ def get_paris_suggestions():
         soup = scrape_with_requests(url)
         
         suggestions = []
-        suggestion_items = soup.select('.suggestion-item')  # Update selector based on actual HTML
+        # Try different selectors to handle potential website changes
+        suggestion_items = soup.select('.suggestion-item, .autocomplete-item, [class*="suggestion"]')
         
         for item in suggestion_items:
             suggestions.append(item.get_text(strip=True))
