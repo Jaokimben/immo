@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 import os
 import time
 from sqlalchemy import or_
+import random
 
 load_dotenv()
 
@@ -43,6 +44,7 @@ def scrap_seloger():
     chrome_options.add_argument('--headless')
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--disable-dev-shm-usage')
+    chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
     chrome_options.binary_location = os.getenv('GOOGLE_CHROME_BIN')
     
     service = Service(executable_path=os.getenv('CHROMEDRIVER_PATH'))
@@ -54,10 +56,9 @@ def scrap_seloger():
             print(f"Scraping de {ville} sur SeLoger")
             url = f'https://www.seloger.com/achat/immobilier/{ville}/'
             driver.get(url)
-            driver.implicitly_wait(10)
+            time.sleep(random.uniform(2, 4))  # Délai aléatoire
             
             soup = BeautifulSoup(driver.page_source, 'html.parser')
-            # Mise à jour des sélecteurs CSS
             annonces = soup.find_all('div', {'data-test': 'sl.card-container'})
             
             for annonce in annonces:
@@ -82,7 +83,7 @@ def scrap_seloger():
                     print(f"Erreur lors du traitement d'une annonce SeLoger : {str(e)}")
                     continue
             
-            time.sleep(2)
+            time.sleep(random.uniform(1, 3))  # Délai entre les villes
         
         db.session.commit()
         print("Fin du scraping SeLoger")
@@ -98,6 +99,7 @@ def scrap_pap():
     chrome_options.add_argument('--headless')
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--disable-dev-shm-usage')
+    chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
     chrome_options.binary_location = os.getenv('GOOGLE_CHROME_BIN')
     
     service = Service(executable_path=os.getenv('CHROMEDRIVER_PATH'))
@@ -109,10 +111,9 @@ def scrap_pap():
             print(f"Scraping de {ville} sur PAP")
             url = f'https://www.pap.fr/annonce/achat-immobilier-{ville.lower()}'
             driver.get(url)
-            driver.implicitly_wait(10)
+            time.sleep(random.uniform(2, 4))  # Délai aléatoire
             
             soup = BeautifulSoup(driver.page_source, 'html.parser')
-            # Mise à jour des sélecteurs CSS
             annonces = soup.find_all('div', class_='announcement-item')
             
             for annonce in annonces:
@@ -137,7 +138,7 @@ def scrap_pap():
                     print(f"Erreur lors du traitement d'une annonce PAP : {str(e)}")
                     continue
             
-            time.sleep(2)
+            time.sleep(random.uniform(1, 3))  # Délai entre les villes
         
         db.session.commit()
         print("Fin du scraping PAP")
@@ -148,10 +149,12 @@ def scrap_pap():
         driver.quit()
 
 def scrap_leboncoin():
+    print("Début du scraping LeBonCoin")
     chrome_options = Options()
     chrome_options.add_argument('--headless')
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--disable-dev-shm-usage')
+    chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
     chrome_options.binary_location = os.getenv('GOOGLE_CHROME_BIN')
     
     service = Service(executable_path=os.getenv('CHROMEDRIVER_PATH'))
@@ -160,42 +163,53 @@ def scrap_leboncoin():
     try:
         villes = ['Paris', 'Lyon', 'Marseille', 'Bordeaux', 'Toulouse', 'Nantes', 'Lille']
         for ville in villes:
+            print(f"Scraping de {ville} sur LeBonCoin")
             url = f'https://www.leboncoin.fr/recherche?category=9&locations={ville}'
             driver.get(url)
-            driver.implicitly_wait(10)
+            time.sleep(random.uniform(2, 4))  # Délai aléatoire
             
             soup = BeautifulSoup(driver.page_source, 'html.parser')
             annonces = soup.find_all('div', class_='styles_adCard')
             
             for annonce in annonces:
-                titre = annonce.find('h3', class_='styles_title').text.strip()
-                prix = annonce.find('span', class_='styles_price').text.strip()
-                surface = annonce.find('span', class_='styles_surface').text.strip()
-                localisation = annonce.find('span', class_='styles_location').text.strip()
-                
-                if not Annonce.query.filter_by(titre=titre, source='LeBonCoin').first():
-                    nouvelle_annonce = Annonce(
-                        titre=titre,
-                        prix=prix,
-                        surface=surface,
-                        localisation=localisation,
-                        source='LeBonCoin',
-                        url=annonce.find('a')['href']
-                    )
-                    db.session.add(nouvelle_annonce)
+                try:
+                    titre = annonce.find('h3', class_='styles_title').text.strip()
+                    prix = annonce.find('span', class_='styles_price').text.strip()
+                    surface = annonce.find('span', class_='styles_surface').text.strip()
+                    localisation = annonce.find('span', class_='styles_location').text.strip()
+                    
+                    if not Annonce.query.filter_by(titre=titre, source='LeBonCoin').first():
+                        nouvelle_annonce = Annonce(
+                            titre=titre,
+                            prix=prix,
+                            surface=surface,
+                            localisation=localisation,
+                            source='LeBonCoin',
+                            url=annonce.find('a')['href']
+                        )
+                        db.session.add(nouvelle_annonce)
+                        print(f"Nouvelle annonce ajoutée : {titre}")
+                except Exception as e:
+                    print(f"Erreur lors du traitement d'une annonce LeBonCoin : {str(e)}")
+                    continue
             
-            time.sleep(2)
+            time.sleep(random.uniform(1, 3))  # Délai entre les villes
         
         db.session.commit()
+        print("Fin du scraping LeBonCoin")
     
+    except Exception as e:
+        print(f"Erreur lors du scraping LeBonCoin : {str(e)}")
     finally:
         driver.quit()
 
 def scrap_orpi():
+    print("Début du scraping Orpi")
     chrome_options = Options()
     chrome_options.add_argument('--headless')
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--disable-dev-shm-usage')
+    chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
     chrome_options.binary_location = os.getenv('GOOGLE_CHROME_BIN')
     
     service = Service(executable_path=os.getenv('CHROMEDRIVER_PATH'))
@@ -204,42 +218,53 @@ def scrap_orpi():
     try:
         villes = ['Paris', 'Lyon', 'Marseille', 'Bordeaux', 'Toulouse', 'Nantes', 'Lille']
         for ville in villes:
+            print(f"Scraping de {ville} sur Orpi")
             url = f'https://www.orpi.com/recherche/achat-immobilier-{ville.lower()}'
             driver.get(url)
-            driver.implicitly_wait(10)
+            time.sleep(random.uniform(2, 4))  # Délai aléatoire
             
             soup = BeautifulSoup(driver.page_source, 'html.parser')
             annonces = soup.find_all('div', class_='property-card')
             
             for annonce in annonces:
-                titre = annonce.find('h2', class_='property-title').text.strip()
-                prix = annonce.find('div', class_='property-price').text.strip()
-                surface = annonce.find('div', class_='property-surface').text.strip()
-                localisation = annonce.find('div', class_='property-location').text.strip()
-                
-                if not Annonce.query.filter_by(titre=titre, source='Orpi').first():
-                    nouvelle_annonce = Annonce(
-                        titre=titre,
-                        prix=prix,
-                        surface=surface,
-                        localisation=localisation,
-                        source='Orpi',
-                        url=annonce.find('a')['href']
-                    )
-                    db.session.add(nouvelle_annonce)
+                try:
+                    titre = annonce.find('h2', class_='property-title').text.strip()
+                    prix = annonce.find('div', class_='property-price').text.strip()
+                    surface = annonce.find('div', class_='property-surface').text.strip()
+                    localisation = annonce.find('div', class_='property-location').text.strip()
+                    
+                    if not Annonce.query.filter_by(titre=titre, source='Orpi').first():
+                        nouvelle_annonce = Annonce(
+                            titre=titre,
+                            prix=prix,
+                            surface=surface,
+                            localisation=localisation,
+                            source='Orpi',
+                            url=annonce.find('a')['href']
+                        )
+                        db.session.add(nouvelle_annonce)
+                        print(f"Nouvelle annonce ajoutée : {titre}")
+                except Exception as e:
+                    print(f"Erreur lors du traitement d'une annonce Orpi : {str(e)}")
+                    continue
             
-            time.sleep(2)
+            time.sleep(random.uniform(1, 3))  # Délai entre les villes
         
         db.session.commit()
+        print("Fin du scraping Orpi")
     
+    except Exception as e:
+        print(f"Erreur lors du scraping Orpi : {str(e)}")
     finally:
         driver.quit()
 
 def scrap_logicimmo():
+    print("Début du scraping Logic-Immo")
     chrome_options = Options()
     chrome_options.add_argument('--headless')
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--disable-dev-shm-usage')
+    chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
     chrome_options.binary_location = os.getenv('GOOGLE_CHROME_BIN')
     
     service = Service(executable_path=os.getenv('CHROMEDRIVER_PATH'))
@@ -248,34 +273,153 @@ def scrap_logicimmo():
     try:
         villes = ['Paris', 'Lyon', 'Marseille', 'Bordeaux', 'Toulouse', 'Nantes', 'Lille']
         for ville in villes:
+            print(f"Scraping de {ville} sur Logic-Immo")
             url = f'https://www.logic-immo.com/achat-immobilier-{ville.lower()}'
             driver.get(url)
-            driver.implicitly_wait(10)
+            time.sleep(random.uniform(2, 4))  # Délai aléatoire
             
             soup = BeautifulSoup(driver.page_source, 'html.parser')
             annonces = soup.find_all('div', class_='announcement-card')
             
             for annonce in annonces:
-                titre = annonce.find('h3', class_='announcement-title').text.strip()
-                prix = annonce.find('div', class_='announcement-price').text.strip()
-                surface = annonce.find('div', class_='announcement-surface').text.strip()
-                localisation = annonce.find('div', class_='announcement-location').text.strip()
-                
-                if not Annonce.query.filter_by(titre=titre, source='LogicImmo').first():
-                    nouvelle_annonce = Annonce(
-                        titre=titre,
-                        prix=prix,
-                        surface=surface,
-                        localisation=localisation,
-                        source='LogicImmo',
-                        url=annonce.find('a')['href']
-                    )
-                    db.session.add(nouvelle_annonce)
+                try:
+                    titre = annonce.find('h3', class_='announcement-title').text.strip()
+                    prix = annonce.find('div', class_='announcement-price').text.strip()
+                    surface = annonce.find('div', class_='announcement-surface').text.strip()
+                    localisation = annonce.find('div', class_='announcement-location').text.strip()
+                    
+                    if not Annonce.query.filter_by(titre=titre, source='Logic-Immo').first():
+                        nouvelle_annonce = Annonce(
+                            titre=titre,
+                            prix=prix,
+                            surface=surface,
+                            localisation=localisation,
+                            source='Logic-Immo',
+                            url=annonce.find('a')['href']
+                        )
+                        db.session.add(nouvelle_annonce)
+                        print(f"Nouvelle annonce ajoutée : {titre}")
+                except Exception as e:
+                    print(f"Erreur lors du traitement d'une annonce Logic-Immo : {str(e)}")
+                    continue
             
-            time.sleep(2)
+            time.sleep(random.uniform(1, 3))  # Délai entre les villes
         
         db.session.commit()
+        print("Fin du scraping Logic-Immo")
     
+    except Exception as e:
+        print(f"Erreur lors du scraping Logic-Immo : {str(e)}")
+    finally:
+        driver.quit()
+
+def scrap_century21():
+    print("Début du scraping Century 21")
+    chrome_options = Options()
+    chrome_options.add_argument('--headless')
+    chrome_options.add_argument('--no-sandbox')
+    chrome_options.add_argument('--disable-dev-shm-usage')
+    chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
+    chrome_options.binary_location = os.getenv('GOOGLE_CHROME_BIN')
+    
+    service = Service(executable_path=os.getenv('CHROMEDRIVER_PATH'))
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+    
+    try:
+        villes = ['Paris', 'Lyon', 'Marseille', 'Bordeaux', 'Toulouse', 'Nantes', 'Lille']
+        for ville in villes:
+            print(f"Scraping de {ville} sur Century 21")
+            url = f'https://www.century21.fr/achat/immobilier-{ville.lower()}'
+            driver.get(url)
+            time.sleep(random.uniform(2, 4))  # Délai aléatoire
+            
+            soup = BeautifulSoup(driver.page_source, 'html.parser')
+            annonces = soup.find_all('div', class_='property-card')
+            
+            for annonce in annonces:
+                try:
+                    titre = annonce.find('h2', class_='property-title').text.strip()
+                    prix = annonce.find('div', class_='property-price').text.strip()
+                    surface = annonce.find('div', class_='property-surface').text.strip()
+                    localisation = annonce.find('div', class_='property-location').text.strip()
+                    
+                    if not Annonce.query.filter_by(titre=titre, source='Century 21').first():
+                        nouvelle_annonce = Annonce(
+                            titre=titre,
+                            prix=prix,
+                            surface=surface,
+                            localisation=localisation,
+                            source='Century 21',
+                            url=annonce.find('a')['href']
+                        )
+                        db.session.add(nouvelle_annonce)
+                        print(f"Nouvelle annonce ajoutée : {titre}")
+                except Exception as e:
+                    print(f"Erreur lors du traitement d'une annonce Century 21 : {str(e)}")
+                    continue
+            
+            time.sleep(random.uniform(1, 3))  # Délai entre les villes
+        
+        db.session.commit()
+        print("Fin du scraping Century 21")
+    
+    except Exception as e:
+        print(f"Erreur lors du scraping Century 21 : {str(e)}")
+    finally:
+        driver.quit()
+
+def scrap_nexity():
+    print("Début du scraping Nexity")
+    chrome_options = Options()
+    chrome_options.add_argument('--headless')
+    chrome_options.add_argument('--no-sandbox')
+    chrome_options.add_argument('--disable-dev-shm-usage')
+    chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
+    chrome_options.binary_location = os.getenv('GOOGLE_CHROME_BIN')
+    
+    service = Service(executable_path=os.getenv('CHROMEDRIVER_PATH'))
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+    
+    try:
+        villes = ['Paris', 'Lyon', 'Marseille', 'Bordeaux', 'Toulouse', 'Nantes', 'Lille']
+        for ville in villes:
+            print(f"Scraping de {ville} sur Nexity")
+            url = f'https://www.nexity.fr/achat/immobilier-{ville.lower()}'
+            driver.get(url)
+            time.sleep(random.uniform(2, 4))  # Délai aléatoire
+            
+            soup = BeautifulSoup(driver.page_source, 'html.parser')
+            annonces = soup.find_all('div', class_='property-card')
+            
+            for annonce in annonces:
+                try:
+                    titre = annonce.find('h2', class_='property-title').text.strip()
+                    prix = annonce.find('div', class_='property-price').text.strip()
+                    surface = annonce.find('div', class_='property-surface').text.strip()
+                    localisation = annonce.find('div', class_='property-location').text.strip()
+                    
+                    if not Annonce.query.filter_by(titre=titre, source='Nexity').first():
+                        nouvelle_annonce = Annonce(
+                            titre=titre,
+                            prix=prix,
+                            surface=surface,
+                            localisation=localisation,
+                            source='Nexity',
+                            url=annonce.find('a')['href']
+                        )
+                        db.session.add(nouvelle_annonce)
+                        print(f"Nouvelle annonce ajoutée : {titre}")
+                except Exception as e:
+                    print(f"Erreur lors du traitement d'une annonce Nexity : {str(e)}")
+                    continue
+            
+            time.sleep(random.uniform(1, 3))  # Délai entre les villes
+        
+        db.session.commit()
+        print("Fin du scraping Nexity")
+    
+    except Exception as e:
+        print(f"Erreur lors du scraping Nexity : {str(e)}")
     finally:
         driver.quit()
 
@@ -357,6 +501,11 @@ def actualiser():
         print("Début de l'actualisation des annonces")
         scrap_seloger()
         scrap_pap()
+        scrap_leboncoin()
+        scrap_orpi()
+        scrap_logicimmo()
+        scrap_century21()
+        scrap_nexity()
         print("Fin de l'actualisation des annonces")
         return jsonify({'status': 'success'})
     except Exception as e:
