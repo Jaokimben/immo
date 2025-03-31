@@ -51,41 +51,30 @@ def scrap_seloger():
     chrome_options.add_argument('--remote-debugging-port=9222')
     chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
     
-    # Configure for Railway environment with validation
-    chrome_bin = os.getenv('GOOGLE_CHROME_BIN')
-    if chrome_bin and isinstance(chrome_bin, str):
-        chrome_options.binary_location = chrome_bin
+    # Use Railway's provided Chrome binary
+    chrome_options.binary_location = os.getenv('GOOGLE_CHROME_BIN', '/usr/bin/google-chrome')
     
     try:
-        # Use specific ChromeDriver version for stability
-        chrome_version = '114.0.5735.90'  # Known stable version
-        service = Service(ChromeDriverManager(version=chrome_version).install())
+        # Use Railway's ChromeDriver path
+        chromedriver_path = os.getenv('CHROMEDRIVER_PATH', '/usr/bin/chromedriver')
+        service = Service(executable_path=chromedriver_path)
         
-        # Ensure executable permissions
-        chromedriver_path = service.path
-        if chromedriver_path and os.path.exists(chromedriver_path):
-            os.chmod(chromedriver_path, 0o755)  # rwxr-xr-x
+        # Verify ChromeDriver exists and is executable
+        if not os.path.exists(chromedriver_path):
+            raise FileNotFoundError(f"ChromeDriver not found at {chromedriver_path}")
+        if not os.access(chromedriver_path, os.X_OK):
+            os.chmod(chromedriver_path, 0o755)
         
         driver = webdriver.Chrome(service=service, options=chrome_options)
+        print("Successfully initialized ChromeDriver")
     except Exception as e:
-        print(f"Error initializing ChromeDriver: {str(e)}")
-        print("Attempting alternative initialization methods...")
-        
-        try:
-            # Try with direct path if available
-            chromedriver_path = os.getenv('CHROMEDRIVER_PATH')
-            if chromedriver_path and os.path.exists(chromedriver_path):
-                os.chmod(chromedriver_path, 0o755)
-                service = Service(executable_path=chromedriver_path)
-                driver = webdriver.Chrome(service=service, options=chrome_options)
-            else:
-                # Final fallback with system ChromeDriver
-                print("Using system ChromeDriver as last resort")
-                service = Service()
-                driver = webdriver.Chrome(service=service, options=chrome_options)
-        except Exception as fallback_error:
-            print(f"Failed to initialize ChromeDriver: {str(fallback_error)}")
-            raise RuntimeError("Could not initialize Chrome WebDriver") from fallback_error
+        print(f"Failed to initialize ChromeDriver: {str(e)}")
+        print("System information:")
+        print(f"Chrome binary: {chrome_options.binary_location}")
+        print(f"ChromeDriver path: {chromedriver_path}")
+        print("Available binaries in /usr/bin/:")
+        print(os.listdir('/usr/bin'))
+        raise RuntimeError("Could not initialize Chrome WebDriver") from e
     
     try:
         villes = ['Paris', 'Lyon', 'Marseille', 'Bordeaux', 'Toulouse', 'Nantes', 'Lille']
