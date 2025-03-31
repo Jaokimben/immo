@@ -1,42 +1,33 @@
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
-import chromedriver_binary
 import os
 import logging
+from webdriver_manager.chrome import ChromeDriverManager
+from webdriver_manager.core.utils import ChromeType
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 try:
-    # Configure Chrome options
+    # Configure Chrome options for Chromium
     chrome_options = Options()
-    chrome_options.add_argument("--headless=new")  # New headless mode
+    chrome_options.add_argument("--headless=new")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--remote-debugging-port=9222")
-    chrome_options.binary_location = "/usr/bin/google-chrome"
+    chrome_options.binary_location = "/usr/bin/chromium-browser"
 
-    # Set ChromeDriver executable permissions
-    driver_path = chromedriver_binary.chromedriver_filename
-    os.chmod(driver_path, 0o755)
-    logger.info(f"Using ChromeDriver at: {driver_path}")
+    # Use webdriver_manager to handle ChromeDriver
+    service = Service(ChromeDriverManager(chrome_type=ChromeType.CHROMIUM).install())
 
-    # Configure service
-    service = Service(
-        executable_path=driver_path,
-        service_args=["--verbose", "--log-level=ALL"],
-        log_path="/tmp/chromedriver.log"
-    )
-
-    # Initialize Chrome WebDriver with timeout
+    # Initialize WebDriver
     driver = webdriver.Chrome(
         service=service,
         options=chrome_options
     )
-    logger.info("Chrome WebDriver initialized successfully")
+    logger.info("Chromium WebDriver initialized successfully")
 
 except Exception as e:
     logger.error(f"Failed to initialize WebDriver: {str(e)}")
