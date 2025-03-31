@@ -1,3 +1,9 @@
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+
+# Initialize Chrome WebDriver with automatic management
+driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
 from flask import Flask, render_template, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
