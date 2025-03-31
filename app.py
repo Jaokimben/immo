@@ -1,18 +1,31 @@
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
-import chromedriver_binary  # Adds chromedriver to PATH automatically
+import chromedriver_binary
+import os
 
 # Configure Chrome options
 chrome_options = Options()
-chrome_options.add_argument("--headless")  # Run in headless mode for servers
+chrome_options.add_argument("--headless")
 chrome_options.add_argument("--no-sandbox")
 chrome_options.add_argument("--disable-dev-shm-usage")
-chrome_options.binary_location = "/usr/bin/google-chrome"  # Standard Chrome location in Linux
+chrome_options.add_argument("--disable-gpu")
+chrome_options.binary_location = "/usr/bin/google-chrome"
+
+# Set ChromeDriver executable permissions
+driver_path = chromedriver_binary.chromedriver_filename
+os.chmod(driver_path, 0o755)
+
+# Configure service with explicit log path
+service = Service(
+    executable_path=driver_path,
+    service_args=["--verbose"],
+    log_path="/tmp/chromedriver.log"
+)
 
 # Initialize Chrome WebDriver
 driver = webdriver.Chrome(
-    service=Service(),
+    service=service,
     options=chrome_options
 )
 from flask import Flask, render_template, request, jsonify
