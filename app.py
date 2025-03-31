@@ -8,6 +8,7 @@ from selenium.webdriver.chrome.service import Service
 from dotenv import load_dotenv
 import os
 import time
+from sqlalchemy import or_
 
 load_dotenv()
 
@@ -150,11 +151,31 @@ def suggestions():
     
     # Amélioration de la recherche des suggestions
     suggestions = db.session.query(Annonce.localisation)\
-        .filter(Annonce.localisation.ilike(f"%{query}%"))\
+        .filter(
+            db.or_(
+                Annonce.localisation.ilike(f"%{query}%"),
+                Annonce.localisation.ilike(f"%{query.capitalize()}%"),
+                Annonce.localisation.ilike(f"%{query.upper()}%")
+            )
+        )\
         .distinct()\
         .order_by(Annonce.localisation)\
         .limit(5)\
         .all()
+    
+    # Si aucune suggestion n'est trouvée, on essaie avec une recherche plus large
+    if not suggestions:
+        suggestions = db.session.query(Annonce.localisation)\
+            .filter(
+                db.or_(
+                    Annonce.localisation.ilike(f"%{query[:2]}%"),
+                    Annonce.localisation.ilike(f"%{query[:2].capitalize()}%")
+                )
+            )\
+            .distinct()\
+            .order_by(Annonce.localisation)\
+            .limit(5)\
+            .all()
     
     return jsonify([s[0] for s in suggestions])
 
