@@ -53,8 +53,9 @@ def scrap_seloger():
     try:
         villes = ['Paris', 'Lyon', 'Marseille', 'Bordeaux', 'Toulouse', 'Nantes', 'Lille']
         for ville in villes:
-            print(f"Scraping de {ville} sur SeLoger")
+            print(f"\nScraping de {ville} sur SeLoger")
             url = f'https://www.seloger.com/achat/immobilier/{ville}/'
+            print(f"URL : {url}")
             driver.get(url)
             time.sleep(random.uniform(2, 4))  # Délai aléatoire
             
@@ -64,39 +65,54 @@ def scrap_seloger():
             # Sauvegarder le HTML pour debug
             with open(f'seloger_{ville.lower()}.html', 'w', encoding='utf-8') as f:
                 f.write(driver.page_source)
+            print(f"HTML sauvegardé dans seloger_{ville.lower()}.html")
             
             soup = BeautifulSoup(driver.page_source, 'html.parser')
             
-            # Essayer différents sélecteurs
+            # Essayer différents sélecteurs pour les annonces
             annonces = soup.find_all('div', {'data-test': 'sl.card-container'})
             if not annonces:
+                print("Sélecteur data-test non trouvé, essai avec c-pa-list")
                 annonces = soup.find_all('div', class_='c-pa-list')
             if not annonces:
+                print("Sélecteur c-pa-list non trouvé, essai avec c-pa-cpt")
                 annonces = soup.find_all('div', class_='c-pa-cpt')
+            if not annonces:
+                print("Sélecteur c-pa-cpt non trouvé, essai avec c-pa")
+                annonces = soup.find_all('div', class_='c-pa')
             
             print(f"Nombre d'annonces trouvées pour {ville}: {len(annonces)}")
             
-            for annonce in annonces:
+            for i, annonce in enumerate(annonces, 1):
                 try:
+                    print(f"\nTraitement de l'annonce {i}")
+                    
                     # Essayer différents sélecteurs pour chaque champ
                     titre_elem = annonce.find('div', {'data-test': 'sl.card-title'}) or \
                                annonce.find('h3', class_='c-pa-title') or \
-                               annonce.find('div', class_='c-pa-title')
+                               annonce.find('div', class_='c-pa-title') or \
+                               annonce.find('h2', class_='c-pa-title')
                     
                     prix_elem = annonce.find('div', {'data-test': 'sl.card-price'}) or \
                               annonce.find('div', class_='c-pa-price') or \
-                              annonce.find('span', class_='c-pa-price')
+                              annonce.find('span', class_='c-pa-price') or \
+                              annonce.find('div', class_='c-pa-criterion', string=lambda x: x and '€' in x)
                     
                     surface_elem = annonce.find('div', {'data-test': 'sl.card-surface'}) or \
-                                 annonce.find('div', class_='c-pa-criterion') or \
-                                 annonce.find('span', class_='c-pa-criterion')
+                                 annonce.find('div', class_='c-pa-criterion', string=lambda x: x and 'm²' in x) or \
+                                 annonce.find('span', class_='c-pa-criterion', string=lambda x: x and 'm²' in x)
                     
                     localisation_elem = annonce.find('div', {'data-test': 'sl.card-location'}) or \
                                       annonce.find('div', class_='c-pa-city') or \
-                                      annonce.find('span', class_='c-pa-city')
+                                      annonce.find('span', class_='c-pa-city') or \
+                                      annonce.find('div', class_='c-pa-location')
                     
                     if not all([titre_elem, prix_elem, surface_elem, localisation_elem]):
-                        print(f"Éléments manquants pour une annonce de {ville}")
+                        print("Éléments manquants pour cette annonce")
+                        print(f"Titre: {bool(titre_elem)}")
+                        print(f"Prix: {bool(prix_elem)}")
+                        print(f"Surface: {bool(surface_elem)}")
+                        print(f"Localisation: {bool(localisation_elem)}")
                         continue
                     
                     titre = titre_elem.text.strip()
@@ -104,11 +120,13 @@ def scrap_seloger():
                     surface = surface_elem.text.strip()
                     localisation = localisation_elem.text.strip()
                     
-                    print(f"Annonce trouvée : {titre}")
-                    print(f"Prix : {prix}")
-                    print(f"Surface : {surface}")
-                    print(f"Localisation : {localisation}")
+                    print(f"Annonce trouvée :")
+                    print(f"- Titre : {titre}")
+                    print(f"- Prix : {prix}")
+                    print(f"- Surface : {surface}")
+                    print(f"- Localisation : {localisation}")
                     
+                    # Vérifier si l'annonce existe déjà
                     if not Annonce.query.filter_by(titre=titre, source='SeLoger').first():
                         nouvelle_annonce = Annonce(
                             titre=titre,
@@ -116,10 +134,12 @@ def scrap_seloger():
                             surface=surface,
                             localisation=localisation,
                             source='SeLoger',
-                            url=annonce.find('a')['href']
+                            url=annonce.find('a')['href'] if annonce.find('a') else ''
                         )
                         db.session.add(nouvelle_annonce)
-                        print(f"Nouvelle annonce ajoutée : {titre}")
+                        print("Nouvelle annonce ajoutée à la base de données")
+                    else:
+                        print("Annonce déjà existante, ignorée")
                 except Exception as e:
                     print(f"Erreur lors du traitement d'une annonce SeLoger : {str(e)}")
                     continue
@@ -127,7 +147,8 @@ def scrap_seloger():
             time.sleep(random.uniform(1, 3))  # Délai entre les villes
         
         db.session.commit()
-        print("Fin du scraping SeLoger")
+        print("\nFin du scraping SeLoger")
+        print(f"Nombre total d'annonces dans la base : {Annonce.query.count()}")
     
     except Exception as e:
         print(f"Erreur lors du scraping SeLoger : {str(e)}")
@@ -643,6 +664,28 @@ def test_scraping():
         })
     except Exception as e:
         print(f"Erreur lors du test de scraping : {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        })
+
+@app.route('/test_seloger')
+def test_seloger():
+    try:
+        print("Début du test de scraping SeLoger")
+        print(f"Nombre d'annonces avant test : {Annonce.query.count()}")
+        
+        # Test avec SeLoger uniquement
+        scrap_seloger()
+        
+        print(f"Nombre d'annonces après test : {Annonce.query.count()}")
+        return jsonify({
+            'status': 'success',
+            'message': 'Test de scraping SeLoger terminé',
+            'annonces_avant': Annonce.query.count()
+        })
+    except Exception as e:
+        print(f"Erreur lors du test de scraping SeLoger : {str(e)}")
         return jsonify({
             'status': 'error',
             'message': str(e)

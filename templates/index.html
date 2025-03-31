@@ -97,6 +97,9 @@
                 <button class="btn btn-warning me-2" onclick="testScraping()">
                     <i class="fas fa-bug"></i> Test Scraping
                 </button>
+                <button class="btn btn-warning me-2" onclick="testSeLoger()">
+                    <i class="fas fa-bug"></i> Test SeLoger
+                </button>
                 <button class="btn btn-light" onclick="actualiserAnnonces()">
                     <i class="fas fa-sync"></i> Actualiser
                 </button>
@@ -437,6 +440,37 @@
                 .catch(error => {
                     showError('Erreur lors du test de scraping');
                     addDebugLog(`Erreur test scraping : ${error}`);
+                })
+                .finally(() => {
+                    setTimeout(() => {
+                        progressDiv.style.display = 'none';
+                    }, 1000);
+                });
+        }
+
+        function testSeLoger() {
+            const progressDiv = document.getElementById('progress');
+            progressDiv.style.display = 'block';
+            updateProgress(0);
+            hideError();
+            addDebugLog('Début du test de scraping SeLoger');
+            
+            fetch('/test_seloger')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        updateProgress(100);
+                        addDebugLog(`Test de scraping SeLoger terminé. ${data.message}`);
+                        addDebugLog(`Nombre d'annonces : ${data.annonces_avant}`);
+                        rechercherAnnonces();
+                    } else {
+                        showError(data.message || 'Erreur lors du test de scraping SeLoger');
+                        addDebugLog(`Erreur test scraping SeLoger : ${data.message}`);
+                    }
+                })
+                .catch(error => {
+                    showError('Erreur lors du test de scraping SeLoger');
+                    addDebugLog(`Erreur test scraping SeLoger : ${error}`);
                 })
                 .finally(() => {
                     setTimeout(() => {
