@@ -3,31 +3,54 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 import chromedriver_binary
 import os
+import logging
 
-# Configure Chrome options
-chrome_options = Options()
-chrome_options.add_argument("--headless")
-chrome_options.add_argument("--no-sandbox")
-chrome_options.add_argument("--disable-dev-shm-usage")
-chrome_options.add_argument("--disable-gpu")
-chrome_options.binary_location = "/usr/bin/google-chrome"
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Set ChromeDriver executable permissions
-driver_path = chromedriver_binary.chromedriver_filename
-os.chmod(driver_path, 0o755)
+try:
+    # Configure Chrome options
+    chrome_options = Options()
+    chrome_options.add_argument("--headless=new")  # New headless mode
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--remote-debugging-port=9222")
+    chrome_options.binary_location = "/usr/bin/google-chrome"
 
-# Configure service with explicit log path
-service = Service(
-    executable_path=driver_path,
-    service_args=["--verbose"],
-    log_path="/tmp/chromedriver.log"
-)
+    # Set ChromeDriver executable permissions
+    driver_path = chromedriver_binary.chromedriver_filename
+    os.chmod(driver_path, 0o755)
+    logger.info(f"Using ChromeDriver at: {driver_path}")
 
-# Initialize Chrome WebDriver
-driver = webdriver.Chrome(
-    service=service,
-    options=chrome_options
-)
+    # Configure service
+    service = Service(
+        executable_path=driver_path,
+        service_args=["--verbose", "--log-level=ALL"],
+        log_path="/tmp/chromedriver.log"
+    )
+
+    # Initialize Chrome WebDriver with timeout
+    driver = webdriver.Chrome(
+        service=service,
+        options=chrome_options
+    )
+    logger.info("Chrome WebDriver initialized successfully")
+
+except Exception as e:
+    logger.error(f"Failed to initialize WebDriver: {str(e)}")
+    # Fallback to basic driver if available
+    try:
+        driver = webdriver.Chrome(options=chrome_options)
+        logger.info("Fallback WebDriver initialized")
+    except:
+        logger.error("Could not initialize any WebDriver")
+        raise
+
+# Ensure driver is properly closed on app exit
+import atexit
+atexit.register(lambda: driver.quit() if 'driver' in locals() else None)
 from flask import Flask, render_template, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
