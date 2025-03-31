@@ -1,9 +1,20 @@
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
 
+# Configure Chrome options
+chrome_options = Options()
+chrome_options.add_argument("--headless")  # Run in headless mode for servers
+chrome_options.add_argument("--no-sandbox")
+chrome_options.add_argument("--disable-dev-shm-usage")
+chrome_options.binary_location = "/usr/bin/google-chrome"  # Standard Chrome location in Linux
+
 # Initialize Chrome WebDriver with automatic management
-driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
+driver = webdriver.Chrome(
+    service=Service(ChromeDriverManager().install()),
+    options=chrome_options
+)
 from flask import Flask, render_template, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
