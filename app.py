@@ -10,9 +10,9 @@ chrome_options.add_argument("--no-sandbox")
 chrome_options.add_argument("--disable-dev-shm-usage")
 chrome_options.binary_location = "/usr/bin/google-chrome"  # Standard Chrome location in Linux
 
-# Initialize Chrome WebDriver with automatic management
+# Initialize Chrome WebDriver with fixed version (matches Railway's Chrome)
 driver = webdriver.Chrome(
-    service=Service(ChromeDriverManager().install()),
+    service=Service(ChromeDriverManager(version="114.0.5735.90").install()),
     options=chrome_options
 )
 from flask import Flask, render_template, request, jsonify
