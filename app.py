@@ -7,6 +7,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from dotenv import load_dotenv
 import os
+import time
 
 load_dotenv()
 
@@ -105,6 +106,10 @@ def recherche():
         )
     
     annonces = query.order_by(Annonce.date_ajout.desc()).all()
+    
+    # Ajout d'un délai artificiel de 1 seconde
+    time.sleep(1)
+    
     return jsonify([{
         'titre': a.titre,
         'prix': a.prix,
@@ -125,9 +130,14 @@ def suggestions():
     if len(query) < 2:
         return jsonify([])
     
+    # Ajout d'un délai artificiel de 0.5 seconde
+    time.sleep(0.5)
+    
+    # Amélioration de la recherche des suggestions
     suggestions = db.session.query(Annonce.localisation)\
         .filter(Annonce.localisation.ilike(f"%{query}%"))\
         .distinct()\
+        .order_by(Annonce.localisation)\
         .limit(5)\
         .all()
     

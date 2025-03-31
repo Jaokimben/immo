@@ -44,6 +44,7 @@
             width: 100%;
             z-index: 1000;
             display: none;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
         .suggestion-item {
             padding: 8px 12px;
@@ -51,6 +52,15 @@
         }
         .suggestion-item:hover {
             background-color: #f8f9fa;
+        }
+        .no-results {
+            text-align: center;
+            padding: 20px;
+            color: #6c757d;
+        }
+        .no-results i {
+            font-size: 3rem;
+            margin-bottom: 10px;
         }
     </style>
 </head>
@@ -144,18 +154,26 @@
                     .then(response => response.json())
                     .then(suggestions => {
                         suggestionsDiv.innerHTML = '';
-                        suggestions.forEach(suggestion => {
+                        if (suggestions.length === 0) {
                             const div = document.createElement('div');
                             div.className = 'suggestion-item';
-                            div.textContent = suggestion;
-                            div.addEventListener('click', () => {
-                                localisationInput.value = suggestion;
-                                suggestionsDiv.style.display = 'none';
-                                rechercherAnnonces();
-                            });
+                            div.textContent = 'Aucune suggestion trouvée';
+                            div.style.color = '#6c757d';
                             suggestionsDiv.appendChild(div);
-                        });
-                        suggestionsDiv.style.display = suggestions.length > 0 ? 'block' : 'none';
+                        } else {
+                            suggestions.forEach(suggestion => {
+                                const div = document.createElement('div');
+                                div.className = 'suggestion-item';
+                                div.textContent = suggestion;
+                                div.addEventListener('click', () => {
+                                    localisationInput.value = suggestion;
+                                    suggestionsDiv.style.display = 'none';
+                                    rechercherAnnonces();
+                                });
+                                suggestionsDiv.appendChild(div);
+                            });
+                        }
+                        suggestionsDiv.style.display = 'block';
                     });
             }, 300);
         });
@@ -183,6 +201,19 @@
                 .then(annonces => {
                     const container = document.getElementById('annonces');
                     container.innerHTML = '';
+                    
+                    if (annonces.length === 0) {
+                        container.innerHTML = `
+                            <div class="col-12">
+                                <div class="no-results">
+                                    <i class="fas fa-search"></i>
+                                    <h4>Aucune annonce trouvée</h4>
+                                    <p>Essayez de modifier vos critères de recherche</p>
+                                </div>
+                            </div>
+                        `;
+                        return;
+                    }
                     
                     annonces.forEach(annonce => {
                         const card = document.createElement('div');
