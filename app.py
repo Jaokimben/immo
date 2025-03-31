@@ -3,6 +3,7 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 import os
 import logging
+import chromedriver_autoinstaller
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -11,6 +12,9 @@ logger = logging.getLogger(__name__)
 def init_webdriver():
     """Initialize WebDriver following Railway's recommendations"""
     try:
+        # Install/update ChromeDriver
+        chromedriver_autoinstaller.install()
+        
         # Railway-specific configuration
         chrome_options = Options()
         chrome_options.add_argument("--headless=new")
