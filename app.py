@@ -12,7 +12,6 @@ from sqlalchemy import or_
 import random
 import requests
 import re
-from webdriver_manager.chrome import ChromeDriverManager
 
 load_dotenv()
 
