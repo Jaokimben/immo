@@ -57,20 +57,35 @@ def scrap_seloger():
         chrome_options.binary_location = chrome_bin
     
     try:
-        # First try with webdriver_manager
-        service = Service(ChromeDriverManager().install())
+        # Use specific ChromeDriver version for stability
+        chrome_version = '114.0.5735.90'  # Known stable version
+        service = Service(ChromeDriverManager(version=chrome_version).install())
+        
+        # Ensure executable permissions
+        chromedriver_path = service.path
+        if chromedriver_path and os.path.exists(chromedriver_path):
+            os.chmod(chromedriver_path, 0o755)  # rwxr-xr-x
+        
         driver = webdriver.Chrome(service=service, options=chrome_options)
     except Exception as e:
-        print(f"Error using webdriver_manager: {str(e)}")
-        print("Falling back to direct ChromeDriver path")
-        chromedriver_path = os.getenv('CHROMEDRIVER_PATH')
-        if chromedriver_path and isinstance(chromedriver_path, str):
-            service = Service(executable_path=chromedriver_path)
-            driver = webdriver.Chrome(service=service, options=chrome_options)
-        else:
-            print("No valid CHROMEDRIVER_PATH found, using default ChromeDriver")
-            service = Service()
-            driver = webdriver.Chrome(service=service, options=chrome_options)
+        print(f"Error initializing ChromeDriver: {str(e)}")
+        print("Attempting alternative initialization methods...")
+        
+        try:
+            # Try with direct path if available
+            chromedriver_path = os.getenv('CHROMEDRIVER_PATH')
+            if chromedriver_path and os.path.exists(chromedriver_path):
+                os.chmod(chromedriver_path, 0o755)
+                service = Service(executable_path=chromedriver_path)
+                driver = webdriver.Chrome(service=service, options=chrome_options)
+            else:
+                # Final fallback with system ChromeDriver
+                print("Using system ChromeDriver as last resort")
+                service = Service()
+                driver = webdriver.Chrome(service=service, options=chrome_options)
+        except Exception as fallback_error:
+            print(f"Failed to initialize ChromeDriver: {str(fallback_error)}")
+            raise RuntimeError("Could not initialize Chrome WebDriver") from fallback_error
     
     try:
         villes = ['Paris', 'Lyon', 'Marseille', 'Bordeaux', 'Toulouse', 'Nantes', 'Lille']
