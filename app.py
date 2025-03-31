@@ -42,14 +42,15 @@ with app.app_context():
 
 def scrap_seloger():
     print("Début du scraping SeLoger")
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'fr,fr-FR;q=0.8,en-US;q=0.5,en;q=0.3',
-        'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1',
-        'Cache-Control': 'max-age=0'
-    }
+    chrome_options = Options()
+    chrome_options.add_argument('--headless')
+    chrome_options.add_argument('--no-sandbox')
+    chrome_options.add_argument('--disable-dev-shm-usage')
+    chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
+    chrome_options.binary_location = os.getenv('GOOGLE_CHROME_BIN')
+    
+    service = Service(executable_path=os.getenv('CHROMEDRIVER_PATH'))
+    driver = webdriver.Chrome(service=service, options=chrome_options)
     
     try:
         villes = ['Paris', 'Lyon', 'Marseille', 'Bordeaux', 'Toulouse', 'Nantes', 'Lille']
@@ -59,16 +60,23 @@ def scrap_seloger():
             print(f"URL : {url}")
             
             try:
-                response = requests.get(url, headers=headers)
-                response.raise_for_status()
-                print(f"Page chargée avec succès (status: {response.status_code})")
+                driver.get(url)
+                print("Page chargée avec Selenium")
+                
+                # Attendre que les annonces se chargent
+                time.sleep(5)  # Attente pour le chargement JavaScript
+                
+                # Faire défiler la page pour charger plus d'annonces
+                for _ in range(3):
+                    driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                    time.sleep(2)
                 
                 # Sauvegarder le HTML pour debug
                 with open(f'seloger_{ville.lower()}.html', 'w', encoding='utf-8') as f:
-                    f.write(response.text)
+                    f.write(driver.page_source)
                 print(f"HTML sauvegardé dans seloger_{ville.lower()}.html")
                 
-                soup = BeautifulSoup(response.text, 'html.parser')
+                soup = BeautifulSoup(driver.page_source, 'html.parser')
                 
                 # Afficher les classes trouvées dans la page
                 print("\nClasses trouvées dans la page :")
@@ -183,11 +191,8 @@ def scrap_seloger():
                         print(f"Erreur lors du traitement d'une annonce SeLoger : {str(e)}")
                         continue
                 
-                time.sleep(random.uniform(1, 3))  # Délai entre les villes
+                time.sleep(random.uniform(2, 4))  # Délai entre les villes
                 
-            except requests.RequestException as e:
-                print(f"Erreur lors de la requête HTTP pour {ville} : {str(e)}")
-                continue
             except Exception as e:
                 print(f"Erreur lors du scraping de {ville} : {str(e)}")
                 continue
@@ -198,6 +203,8 @@ def scrap_seloger():
     
     except Exception as e:
         print(f"Erreur lors du scraping SeLoger : {str(e)}")
+    finally:
+        driver.quit()
 
 def scrap_pap():
     print("Début du scraping PAP")
@@ -551,7 +558,7 @@ def recherche():
         'localisation': request.args.get('localisation')
     }
     
-    print(f"Critères de recherche : {criteres}")
+    print(f"Recherche avec les paramètres : {criteres}")
     
     # Vérifier le nombre total d'annonces dans la base
     total_annonces = Annonce.query.count()
@@ -561,11 +568,12 @@ def recherche():
     
     if criteres['localisation']:
         print(f"Recherche pour la localisation : {criteres['localisation']}")
+        localisation = criteres['localisation'].lower()
         query = query.filter(
             db.or_(
-                Annonce.localisation.ilike(f"%{criteres['localisation']}%"),
-                Annonce.localisation.ilike(f"%{criteres['localisation'].capitalize()}%"),
-                Annonce.localisation.ilike(f"%{criteres['localisation'].upper()}%")
+                Annonce.localisation.ilike(f"%{localisation}%"),
+                Annonce.localisation.ilike(f"%{localisation.capitalize()}%"),
+                Annonce.localisation.ilike(f"%{localisation.upper()}%")
             )
         )
         print(f"Requête SQL : {query}")
@@ -610,9 +618,6 @@ def recherche():
             continue
     
     print(f"Nombre d'annonces filtrées : {len(annonces_filtrees)}")
-    
-    # Ajout d'un délai artificiel de 1 seconde
-    time.sleep(1)
     
     return jsonify([{
         'titre': a.titre,
@@ -659,41 +664,79 @@ def actualiser():
 @app.route('/suggestions')
 def suggestions():
     query = request.args.get('q', '').lower()
+    print(f"Recherche de suggestions pour : {query}")
+    
     if len(query) < 2:
         return jsonify([])
     
-    # Ajout d'un délai artificiel de 0.5 seconde
-    time.sleep(0.5)
+    # Liste des villes principales avec leurs variations
+    villes = {
+        "Paris": ["paris", "par"],
+        "Lyon": ["lyon", "ly"],
+        "Marseille": ["marseille", "mar"],
+        "Bordeaux": ["bordeaux", "bord"],
+        "Toulouse": ["toulouse", "toul"],
+        "Nantes": ["nantes", "nant"],
+        "Lille": ["lille", "lil"],
+        "Rennes": ["rennes", "ren"],
+        "Reims": ["reims", "rei"],
+        "Le Havre": ["le havre", "havre", "hav"],
+        "Saint-Étienne": ["saint-etienne", "saint etienne", "etienne"],
+        "Toulon": ["toulon", "toul"],
+        "Grenoble": ["grenoble", "gren"],
+        "Dijon": ["dijon", "dij"],
+        "Angers": ["angers", "ang"],
+        "Nîmes": ["nimes", "nim"],
+        "Villeurbanne": ["villeurbanne", "ville"],
+        "Le Mans": ["le mans", "mans"],
+        "Aix-en-Provence": ["aix-en-provence", "aix", "aix en provence"],
+        "Brest": ["brest", "bre"],
+        "Amiens": ["amiens", "ami"],
+        "Limoges": ["limoges", "lim"],
+        "Tours": ["tours", "tou"],
+        "Clermont-Ferrand": ["clermont-ferrand", "clermont", "clerm"],
+        "Rouen": ["rouen", "rou"],
+        "Orléans": ["orleans", "orl"],
+        "Metz": ["metz", "met"],
+        "Caen": ["caen", "cae"],
+        "Nancy": ["nancy", "nan"],
+        "Saint-Denis": ["saint-denis", "saint denis", "denis"],
+        "Argenteuil": ["argenteuil", "arg"],
+        "Montreuil": ["montreuil", "mon"],
+        "Roubaix": ["roubaix", "rou"],
+        "Dunkerque": ["dunkerque", "dunk"],
+        "Perpignan": ["perpignan", "per"],
+        "Mulhouse": ["mulhouse", "mul"],
+        "Nice": ["nice", "nic"],
+        "Nanterre": ["nanterre", "nan"],
+        "Courbevoie": ["courbevoie", "cour"],
+        "Versailles": ["versailles", "ver"],
+        "Créteil": ["creteil", "cre"],
+        "Pau": ["pau", "pau"],
+        "Poitiers": ["poitiers", "poi"],
+        "La Rochelle": ["la rochelle", "rochelle", "roch"],
+        "Angoulême": ["angouleme", "ang"],
+        "Biarritz": ["biarritz", "bia"],
+        "Bayonne": ["bayonne", "bay"],
+        "Tarbes": ["tarbes", "tar"],
+        "Montpellier": ["montpellier", "mon"],
+        "Béziers": ["beziers", "bez"],
+        "Sète": ["sete", "set"],
+        "Avignon": ["avignon", "avi"],
+        "Cannes": ["cannes", "can"],
+        "Antibes": ["antibes", "ant"]
+    }
     
-    # Amélioration de la recherche des suggestions
-    suggestions = db.session.query(Annonce.localisation)\
-        .filter(
-            db.or_(
-                Annonce.localisation.ilike(f"%{query}%"),
-                Annonce.localisation.ilike(f"%{query.capitalize()}%"),
-                Annonce.localisation.ilike(f"%{query.upper()}%")
-            )
-        )\
-        .distinct()\
-        .order_by(Annonce.localisation)\
-        .limit(5)\
-        .all()
+    # Recherche des villes correspondantes
+    suggestions = []
+    for ville, variations in villes.items():
+        if any(query in variation for variation in variations):
+            suggestions.append(ville)
+            if len(suggestions) >= 5:  # Limiter à 5 suggestions
+                break
     
-    # Si aucune suggestion n'est trouvée, on essaie avec une recherche plus large
-    if not suggestions:
-        suggestions = db.session.query(Annonce.localisation)\
-            .filter(
-                db.or_(
-                    Annonce.localisation.ilike(f"%{query[:2]}%"),
-                    Annonce.localisation.ilike(f"%{query[:2].capitalize()}%")
-                )
-            )\
-            .distinct()\
-            .order_by(Annonce.localisation)\
-            .limit(5)\
-            .all()
-    
-    return jsonify([s[0] for s in suggestions])
+    print(f"Suggestions trouvées : {suggestions}")
+    return jsonify(suggestions)
 
 @app.route('/test_scraping')
 def test_scraping():
