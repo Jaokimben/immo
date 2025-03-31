@@ -62,6 +62,18 @@
             font-size: 3rem;
             margin-bottom: 10px;
         }
+        .progress {
+            display: none;
+            margin-top: 20px;
+        }
+        .error-message {
+            display: none;
+            color: #dc3545;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 4px;
+            background-color: #f8d7da;
+        }
     </style>
 </head>
 <body>
@@ -165,6 +177,10 @@
                     <i class="fas fa-spinner"></i>
                     <p>Recherche en cours...</p>
                 </div>
+                <div id="progress" class="progress">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                </div>
+                <div id="error" class="error-message"></div>
                 <div id="annonces" class="row g-4">
                     <!-- Les annonces seront injectées ici -->
                 </div>
@@ -179,6 +195,21 @@
         const suggestionsDiv = document.createElement('div');
         suggestionsDiv.className = 'suggestions';
         localisationInput.parentNode.appendChild(suggestionsDiv);
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        function hideError() {
+            document.getElementById('error').style.display = 'none';
+        }
+
+        function updateProgress(percent) {
+            const progressBar = document.querySelector('.progress-bar');
+            progressBar.style.width = percent + '%';
+        }
 
         localisationInput.addEventListener('input', function() {
             clearTimeout(timeoutId);
@@ -214,6 +245,9 @@
                             });
                         }
                         suggestionsDiv.style.display = 'block';
+                    })
+                    .catch(error => {
+                        showError('Erreur lors de la recherche des suggestions');
                     });
             }, 300);
         });
@@ -226,7 +260,10 @@
 
         function rechercherAnnonces() {
             const loadingDiv = document.getElementById('loading');
+            const progressDiv = document.getElementById('progress');
             loadingDiv.style.display = 'block';
+            progressDiv.style.display = 'block';
+            hideError();
             
             const params = new URLSearchParams({
                 localisation: document.getElementById('localisation').value,
@@ -277,8 +314,12 @@
                         container.appendChild(card);
                     });
                 })
+                .catch(error => {
+                    showError('Erreur lors de la recherche des annonces');
+                })
                 .finally(() => {
                     loadingDiv.style.display = 'none';
+                    progressDiv.style.display = 'none';
                 });
         }
 
@@ -295,13 +336,29 @@
         }
 
         function actualiserAnnonces() {
+            const progressDiv = document.getElementById('progress');
+            progressDiv.style.display = 'block';
+            updateProgress(0);
+            hideError();
+            
             fetch('/actualiser')
                 .then(response => response.json())
                 .then(data => {
                     if (data.status === 'success') {
+                        updateProgress(100);
                         rechercherAnnonces();
                         updateLastUpdate();
+                    } else {
+                        showError(data.message || 'Erreur lors de l\'actualisation');
                     }
+                })
+                .catch(error => {
+                    showError('Erreur lors de l\'actualisation des annonces');
+                })
+                .finally(() => {
+                    setTimeout(() => {
+                        progressDiv.style.display = 'none';
+                    }, 1000);
                 });
         }
 

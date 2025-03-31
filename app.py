@@ -38,7 +38,7 @@ with app.app_context():
     db.create_all()
 
 def scrap_seloger():
-    # Configuration de Selenium pour Railway
+    print("Début du scraping SeLoger")
     chrome_options = Options()
     chrome_options.add_argument('--headless')
     chrome_options.add_argument('--no-sandbox')
@@ -49,51 +49,51 @@ def scrap_seloger():
     driver = webdriver.Chrome(service=service, options=chrome_options)
     
     try:
-        # Ajout de plusieurs villes principales pour avoir plus de données
         villes = ['Paris', 'Lyon', 'Marseille', 'Bordeaux', 'Toulouse', 'Nantes', 'Lille']
         for ville in villes:
-            # Correction de l'URL pour SeLoger
+            print(f"Scraping de {ville} sur SeLoger")
             url = f'https://www.seloger.com/achat/immobilier/{ville}/'
             driver.get(url)
             driver.implicitly_wait(10)
             
             soup = BeautifulSoup(driver.page_source, 'html.parser')
-            annonces = soup.find_all('div', class_='c-pa-list')
+            # Mise à jour des sélecteurs CSS
+            annonces = soup.find_all('div', {'data-test': 'sl.card-container'})
             
             for annonce in annonces:
-                titre = annonce.find('div', class_='c-pa-title').text.strip()
-                prix = annonce.find('div', class_='c-pa-price').text.strip()
-                surface = annonce.find('div', class_='c-pa-criterion').text.strip()
-                
-                # Amélioration de l'extraction de la localisation
-                localisation_div = annonce.find('div', class_='c-pa-city')
-                if localisation_div:
-                    localisation = localisation_div.text.strip()
-                    # Nettoyage de la localisation
-                    localisation = localisation.replace('\n', ' ').replace('  ', ' ').strip()
-                else:
-                    localisation = ville
-                
-                if not Annonce.query.filter_by(titre=titre, source='SeLoger').first():
-                    nouvelle_annonce = Annonce(
-                        titre=titre,
-                        prix=prix,
-                        surface=surface,
-                        localisation=localisation,
-                        source='SeLoger',
-                        url=annonce.find('a')['href']
-                    )
-                    db.session.add(nouvelle_annonce)
+                try:
+                    titre = annonce.find('div', {'data-test': 'sl.card-title'}).text.strip()
+                    prix = annonce.find('div', {'data-test': 'sl.card-price'}).text.strip()
+                    surface = annonce.find('div', {'data-test': 'sl.card-surface'}).text.strip()
+                    localisation = annonce.find('div', {'data-test': 'sl.card-location'}).text.strip()
+                    
+                    if not Annonce.query.filter_by(titre=titre, source='SeLoger').first():
+                        nouvelle_annonce = Annonce(
+                            titre=titre,
+                            prix=prix,
+                            surface=surface,
+                            localisation=localisation,
+                            source='SeLoger',
+                            url=annonce.find('a')['href']
+                        )
+                        db.session.add(nouvelle_annonce)
+                        print(f"Nouvelle annonce ajoutée : {titre}")
+                except Exception as e:
+                    print(f"Erreur lors du traitement d'une annonce SeLoger : {str(e)}")
+                    continue
             
-            # Petit délai entre chaque ville pour éviter d'être bloqué
             time.sleep(2)
         
         db.session.commit()
+        print("Fin du scraping SeLoger")
     
+    except Exception as e:
+        print(f"Erreur lors du scraping SeLoger : {str(e)}")
     finally:
         driver.quit()
 
 def scrap_pap():
+    print("Début du scraping PAP")
     chrome_options = Options()
     chrome_options.add_argument('--headless')
     chrome_options.add_argument('--no-sandbox')
@@ -106,34 +106,44 @@ def scrap_pap():
     try:
         villes = ['Paris', 'Lyon', 'Marseille', 'Bordeaux', 'Toulouse', 'Nantes', 'Lille']
         for ville in villes:
+            print(f"Scraping de {ville} sur PAP")
             url = f'https://www.pap.fr/annonce/achat-immobilier-{ville.lower()}'
             driver.get(url)
             driver.implicitly_wait(10)
             
             soup = BeautifulSoup(driver.page_source, 'html.parser')
-            annonces = soup.find_all('div', class_='search-list-item')
+            # Mise à jour des sélecteurs CSS
+            annonces = soup.find_all('div', class_='announcement-item')
             
             for annonce in annonces:
-                titre = annonce.find('h2', class_='title').text.strip()
-                prix = annonce.find('div', class_='price').text.strip()
-                surface = annonce.find('div', class_='surface').text.strip()
-                localisation = annonce.find('div', class_='location').text.strip()
-                
-                if not Annonce.query.filter_by(titre=titre, source='PAP').first():
-                    nouvelle_annonce = Annonce(
-                        titre=titre,
-                        prix=prix,
-                        surface=surface,
-                        localisation=localisation,
-                        source='PAP',
-                        url=annonce.find('a')['href']
-                    )
-                    db.session.add(nouvelle_annonce)
+                try:
+                    titre = annonce.find('h2', class_='announcement-title').text.strip()
+                    prix = annonce.find('div', class_='announcement-price').text.strip()
+                    surface = annonce.find('div', class_='announcement-surface').text.strip()
+                    localisation = annonce.find('div', class_='announcement-location').text.strip()
+                    
+                    if not Annonce.query.filter_by(titre=titre, source='PAP').first():
+                        nouvelle_annonce = Annonce(
+                            titre=titre,
+                            prix=prix,
+                            surface=surface,
+                            localisation=localisation,
+                            source='PAP',
+                            url=annonce.find('a')['href']
+                        )
+                        db.session.add(nouvelle_annonce)
+                        print(f"Nouvelle annonce ajoutée : {titre}")
+                except Exception as e:
+                    print(f"Erreur lors du traitement d'une annonce PAP : {str(e)}")
+                    continue
             
             time.sleep(2)
         
         db.session.commit()
+        print("Fin du scraping PAP")
     
+    except Exception as e:
+        print(f"Erreur lors du scraping PAP : {str(e)}")
     finally:
         driver.quit()
 
@@ -275,6 +285,7 @@ def index():
 
 @app.route('/recherche')
 def recherche():
+    print("Début de la recherche")
     criteres = {
         'prix_min': request.args.get('prix_min'),
         'prix_max': request.args.get('prix_max'),
@@ -282,6 +293,8 @@ def recherche():
         'surface_max': request.args.get('surface_max'),
         'localisation': request.args.get('localisation')
     }
+    
+    print(f"Critères de recherche : {criteres}")
     
     query = Annonce.query
     
@@ -295,29 +308,36 @@ def recherche():
         )
     
     annonces = query.order_by(Annonce.date_ajout.desc()).all()
+    print(f"Nombre d'annonces trouvées : {len(annonces)}")
     
     # Filtrage des annonces en fonction des critères numériques
     annonces_filtrees = []
     for annonce in annonces:
-        # Extraction du prix numérique
-        prix_str = ''.join(filter(str.isdigit, annonce.prix))
-        prix = int(prix_str) if prix_str else 0
-        
-        # Extraction de la surface numérique
-        surface_str = ''.join(filter(str.isdigit, annonce.surface))
-        surface = int(surface_str) if surface_str else 0
-        
-        # Application des filtres
-        if criteres['prix_min'] and prix < int(criteres['prix_min']):
-            continue
-        if criteres['prix_max'] and prix > int(criteres['prix_max']):
-            continue
-        if criteres['surface_min'] and surface < int(criteres['surface_min']):
-            continue
-        if criteres['surface_max'] and surface > int(criteres['surface_max']):
-            continue
+        try:
+            # Extraction du prix numérique
+            prix_str = ''.join(filter(str.isdigit, annonce.prix))
+            prix = int(prix_str) if prix_str else 0
             
-        annonces_filtrees.append(annonce)
+            # Extraction de la surface numérique
+            surface_str = ''.join(filter(str.isdigit, annonce.surface))
+            surface = int(surface_str) if surface_str else 0
+            
+            # Application des filtres
+            if criteres['prix_min'] and prix < int(criteres['prix_min']):
+                continue
+            if criteres['prix_max'] and prix > int(criteres['prix_max']):
+                continue
+            if criteres['surface_min'] and surface < int(criteres['surface_min']):
+                continue
+            if criteres['surface_max'] and surface > int(criteres['surface_max']):
+                continue
+                
+            annonces_filtrees.append(annonce)
+        except Exception as e:
+            print(f"Erreur lors du filtrage d'une annonce : {str(e)}")
+            continue
+    
+    print(f"Nombre d'annonces filtrées : {len(annonces_filtrees)}")
     
     # Ajout d'un délai artificiel de 1 seconde
     time.sleep(1)
@@ -334,13 +354,13 @@ def recherche():
 @app.route('/actualiser')
 def actualiser():
     try:
+        print("Début de l'actualisation des annonces")
         scrap_seloger()
         scrap_pap()
-        scrap_leboncoin()
-        scrap_orpi()
-        scrap_logicimmo()
+        print("Fin de l'actualisation des annonces")
         return jsonify({'status': 'success'})
     except Exception as e:
+        print(f"Erreur lors de l'actualisation : {str(e)}")
         return jsonify({'status': 'error', 'message': str(e)})
 
 @app.route('/suggestions')
