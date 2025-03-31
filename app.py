@@ -51,18 +51,26 @@ def scrap_seloger():
     chrome_options.add_argument('--remote-debugging-port=9222')
     chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
     
-    # Configure for Railway environment
-    chrome_options.binary_location = os.getenv('GOOGLE_CHROME_BIN')
+    # Configure for Railway environment with validation
+    chrome_bin = os.getenv('GOOGLE_CHROME_BIN')
+    if chrome_bin and isinstance(chrome_bin, str):
+        chrome_options.binary_location = chrome_bin
     
     try:
-        # Try using webdriver_manager first
+        # First try with webdriver_manager
         service = Service(ChromeDriverManager().install())
         driver = webdriver.Chrome(service=service, options=chrome_options)
     except Exception as e:
         print(f"Error using webdriver_manager: {str(e)}")
         print("Falling back to direct ChromeDriver path")
-        service = Service(executable_path=os.getenv('CHROMEDRIVER_PATH'))
-        driver = webdriver.Chrome(service=service, options=chrome_options)
+        chromedriver_path = os.getenv('CHROMEDRIVER_PATH')
+        if chromedriver_path and isinstance(chromedriver_path, str):
+            service = Service(executable_path=chromedriver_path)
+            driver = webdriver.Chrome(service=service, options=chrome_options)
+        else:
+            print("No valid CHROMEDRIVER_PATH found, using default ChromeDriver")
+            service = Service()
+            driver = webdriver.Chrome(service=service, options=chrome_options)
     
     try:
         villes = ['Paris', 'Lyon', 'Marseille', 'Bordeaux', 'Toulouse', 'Nantes', 'Lille']
