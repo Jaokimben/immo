@@ -3,25 +3,43 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 import os
 import logging
-from webdriver_manager.chrome import ChromeDriverManager
+import subprocess
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Path configurations for Railway
+CHROME_PATH = "/usr/bin/chromium-browser"
+CHROMEDRIVER_PATH = "/usr/bin/chromedriver"
+
+def verify_chrome_installation():
+    """Verify Chrome/Chromium and ChromeDriver are properly installed"""
+    if not os.path.exists(CHROME_PATH):
+        raise RuntimeError(f"Chromium not found at {CHROME_PATH}")
+    if not os.path.exists(CHROMEDRIVER_PATH):
+        raise RuntimeError(f"ChromeDriver not found at {CHROMEDRIVER_PATH}")
+    
+    # Verify binaries are executable
+    try:
+        subprocess.run([CHROME_PATH, "--version"], check=True)
+        subprocess.run([CHROMEDRIVER_PATH, "--version"], check=True)
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"Binary verification failed: {e}")
+
 try:
+    verify_chrome_installation()
+    
     # Configure Chrome options
     chrome_options = Options()
     chrome_options.add_argument("--headless=new")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--disable-gpu")
-    chrome_options.binary_location = "/usr/bin/chromium-browser"
+    chrome_options.binary_location = CHROME_PATH
 
-    # Use webdriver_manager to handle ChromeDriver
-    service = Service(ChromeDriverManager().install())
-
-    # Initialize WebDriver
+    # Initialize WebDriver with direct path
+    service = Service(executable_path=CHROMEDRIVER_PATH)
     driver = webdriver.Chrome(
         service=service,
         options=chrome_options
