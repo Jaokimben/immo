@@ -12,7 +12,7 @@ chrome_options.binary_location = "/usr/bin/google-chrome"  # Standard Chrome loc
 
 # Initialize Chrome WebDriver with fixed version (matches Railway's Chrome)
 driver = webdriver.Chrome(
-    service=Service(ChromeDriverManager(version="114.0.5735.90").install()),
+    service=Service(ChromeDriverManager().install(version="114.0.5735.90")),
     options=chrome_options
 )
 from flask import Flask, render_template, request, jsonify
