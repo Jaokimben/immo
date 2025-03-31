@@ -118,31 +118,21 @@
                             <input type="text" class="form-control" id="localisation" placeholder="Ville ou région">
                         </div>
                         <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">Prix min</label>
-                                    <input type="number" class="form-control" id="prixMin">
-                                </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="prix_min" class="form-label">Prix minimum (€)</label>
+                                <input type="number" class="form-control" id="prix_min" min="0" step="1000">
                             </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">Prix max</label>
-                                    <input type="number" class="form-control" id="prixMax">
-                                </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="prix_max" class="form-label">Prix maximum (€)</label>
+                                <input type="number" class="form-control" id="prix_max" min="0" step="1000">
                             </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">Surface min (m²)</label>
-                                    <input type="number" class="form-control" id="surfaceMin">
-                                </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="surface_min" class="form-label">Surface minimum (m²)</label>
+                                <input type="number" class="form-control" id="surface_min" min="0" step="1">
                             </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label class="form-label">Surface max (m²)</label>
-                                    <input type="number" class="form-control" id="surfaceMax">
-                                </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="surface_max" class="form-label">Surface maximum (m²)</label>
+                                <input type="number" class="form-control" id="surface_max" min="0" step="1">
                             </div>
                         </div>
                         <button type="submit" class="btn btn-primary w-100">
@@ -311,10 +301,10 @@
             
             const params = new URLSearchParams({
                 localisation: document.getElementById('localisation').value,
-                prix_min: document.getElementById('prixMin').value,
-                prix_max: document.getElementById('prixMax').value,
-                surface_min: document.getElementById('surfaceMin').value,
-                surface_max: document.getElementById('surfaceMax').value
+                prix_min: document.getElementById('prix_min').value,
+                prix_max: document.getElementById('prix_max').value,
+                surface_min: document.getElementById('surface_min').value,
+                surface_max: document.getElementById('surface_max').value
             });
 
             addDebugLog(`Recherche avec les paramètres : ${params.toString()}`);

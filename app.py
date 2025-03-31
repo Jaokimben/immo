@@ -11,6 +11,7 @@ import time
 from sqlalchemy import or_
 import random
 import requests
+import re
 
 load_dotenv()
 
@@ -69,19 +70,49 @@ def scrap_seloger():
                 
                 soup = BeautifulSoup(response.text, 'html.parser')
                 
-                # Essayer différents sélecteurs pour les annonces
-                annonces = soup.find_all('div', {'data-test': 'sl.card-container'})
-                if not annonces:
-                    print("Sélecteur data-test non trouvé, essai avec c-pa-list")
-                    annonces = soup.find_all('div', class_='c-pa-list')
-                if not annonces:
-                    print("Sélecteur c-pa-list non trouvé, essai avec c-pa-cpt")
-                    annonces = soup.find_all('div', class_='c-pa-cpt')
-                if not annonces:
-                    print("Sélecteur c-pa-cpt non trouvé, essai avec c-pa")
-                    annonces = soup.find_all('div', class_='c-pa')
+                # Afficher les classes trouvées dans la page
+                print("\nClasses trouvées dans la page :")
+                for tag in soup.find_all(class_=True):
+                    print(f"- {tag.get('class')}")
                 
-                print(f"Nombre d'annonces trouvées pour {ville}: {len(annonces)}")
+                # Essayer différents sélecteurs pour les annonces
+                print("\nRecherche des annonces avec différents sélecteurs :")
+                
+                # Sélecteur 1 : data-test
+                annonces = soup.find_all('div', {'data-test': 'sl.card-container'})
+                print(f"Sélecteur data-test : {len(annonces)} annonces trouvées")
+                
+                # Sélecteur 2 : class c-pa-list
+                if not annonces:
+                    annonces = soup.find_all('div', class_='c-pa-list')
+                    print(f"Sélecteur c-pa-list : {len(annonces)} annonces trouvées")
+                
+                # Sélecteur 3 : class c-pa-cpt
+                if not annonces:
+                    annonces = soup.find_all('div', class_='c-pa-cpt')
+                    print(f"Sélecteur c-pa-cpt : {len(annonces)} annonces trouvées")
+                
+                # Sélecteur 4 : class c-pa
+                if not annonces:
+                    annonces = soup.find_all('div', class_='c-pa')
+                    print(f"Sélecteur c-pa : {len(annonces)} annonces trouvées")
+                
+                # Sélecteur 5 : class sl.card-container
+                if not annonces:
+                    annonces = soup.find_all('div', class_='sl.card-container')
+                    print(f"Sélecteur sl.card-container : {len(annonces)} annonces trouvées")
+                
+                # Sélecteur 6 : class sl.card
+                if not annonces:
+                    annonces = soup.find_all('div', class_='sl.card')
+                    print(f"Sélecteur sl.card : {len(annonces)} annonces trouvées")
+                
+                print(f"\nNombre total d'annonces trouvées pour {ville}: {len(annonces)}")
+                
+                # Afficher le HTML de la première annonce si trouvée
+                if annonces:
+                    print("\nHTML de la première annonce :")
+                    print(annonces[0].prettify())
                 
                 for i, annonce in enumerate(annonces, 1):
                     try:
@@ -91,21 +122,29 @@ def scrap_seloger():
                         titre_elem = annonce.find('div', {'data-test': 'sl.card-title'}) or \
                                    annonce.find('h3', class_='c-pa-title') or \
                                    annonce.find('div', class_='c-pa-title') or \
-                                   annonce.find('h2', class_='c-pa-title')
+                                   annonce.find('h2', class_='c-pa-title') or \
+                                   annonce.find('div', class_='sl.card-title') or \
+                                   annonce.find('h3', class_='sl.card-title')
                         
                         prix_elem = annonce.find('div', {'data-test': 'sl.card-price'}) or \
                                   annonce.find('div', class_='c-pa-price') or \
                                   annonce.find('span', class_='c-pa-price') or \
-                                  annonce.find('div', class_='c-pa-criterion', string=lambda x: x and '€' in x)
+                                  annonce.find('div', class_='c-pa-criterion', string=lambda x: x and '€' in x) or \
+                                  annonce.find('div', class_='sl.card-price') or \
+                                  annonce.find('span', class_='sl.card-price')
                         
                         surface_elem = annonce.find('div', {'data-test': 'sl.card-surface'}) or \
                                      annonce.find('div', class_='c-pa-criterion', string=lambda x: x and 'm²' in x) or \
-                                     annonce.find('span', class_='c-pa-criterion', string=lambda x: x and 'm²' in x)
+                                     annonce.find('span', class_='c-pa-criterion', string=lambda x: x and 'm²' in x) or \
+                                     annonce.find('div', class_='sl.card-surface') or \
+                                     annonce.find('span', class_='sl.card-surface')
                         
                         localisation_elem = annonce.find('div', {'data-test': 'sl.card-location'}) or \
                                           annonce.find('div', class_='c-pa-city') or \
                                           annonce.find('span', class_='c-pa-city') or \
-                                          annonce.find('div', class_='c-pa-location')
+                                          annonce.find('div', class_='c-pa-location') or \
+                                          annonce.find('div', class_='sl.card-location') or \
+                                          annonce.find('span', class_='sl.card-location')
                         
                         if not all([titre_elem, prix_elem, surface_elem, localisation_elem]):
                             print("Éléments manquants pour cette annonce")
@@ -490,6 +529,13 @@ def scrap_nexity():
     finally:
         driver.quit()
 
+def extraire_nombre(texte):
+    """Extrait le premier nombre trouvé dans un texte."""
+    match = re.search(r'(\d+(?:[.,]\d+)?)', texte)
+    if match:
+        return float(match.group(1).replace(',', '.'))
+    return 0
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -522,7 +568,6 @@ def recherche():
                 Annonce.localisation.ilike(f"%{criteres['localisation'].upper()}%")
             )
         )
-        # Afficher la requête SQL générée
         print(f"Requête SQL : {query}")
     
     annonces = query.order_by(Annonce.date_ajout.desc()).all()
@@ -537,27 +582,25 @@ def recherche():
     for annonce in annonces:
         try:
             # Extraction du prix numérique
-            prix_str = ''.join(filter(str.isdigit, annonce.prix))
-            prix = int(prix_str) if prix_str else 0
-            print(f"Prix extrait pour {annonce.titre}: {prix}")
+            prix = extraire_nombre(annonce.prix)
+            print(f"Prix extrait pour {annonce.titre}: {prix}€")
             
             # Extraction de la surface numérique
-            surface_str = ''.join(filter(str.isdigit, annonce.surface))
-            surface = int(surface_str) if surface_str else 0
-            print(f"Surface extraite pour {annonce.titre}: {surface}")
+            surface = extraire_nombre(annonce.surface)
+            print(f"Surface extraite pour {annonce.titre}: {surface}m²")
             
             # Application des filtres
-            if criteres['prix_min'] and prix < int(criteres['prix_min']):
-                print(f"Filtré par prix min: {prix} < {criteres['prix_min']}")
+            if criteres['prix_min'] and prix < float(criteres['prix_min']):
+                print(f"Filtré par prix min: {prix}€ < {criteres['prix_min']}€")
                 continue
-            if criteres['prix_max'] and prix > int(criteres['prix_max']):
-                print(f"Filtré par prix max: {prix} > {criteres['prix_max']}")
+            if criteres['prix_max'] and prix > float(criteres['prix_max']):
+                print(f"Filtré par prix max: {prix}€ > {criteres['prix_max']}€")
                 continue
-            if criteres['surface_min'] and surface < int(criteres['surface_min']):
-                print(f"Filtré par surface min: {surface} < {criteres['surface_min']}")
+            if criteres['surface_min'] and surface < float(criteres['surface_min']):
+                print(f"Filtré par surface min: {surface}m² < {criteres['surface_min']}m²")
                 continue
-            if criteres['surface_max'] and surface > int(criteres['surface_max']):
-                print(f"Filtré par surface max: {surface} > {criteres['surface_max']}")
+            if criteres['surface_max'] and surface > float(criteres['surface_max']):
+                print(f"Filtré par surface max: {surface}m² > {criteres['surface_max']}m²")
                 continue
                 
             annonces_filtrees.append(annonce)
