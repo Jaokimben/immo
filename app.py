@@ -1,6 +1,7 @@
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
+import chromedriver_binary  # Adds chromedriver to PATH automatically
 
 # Configure Chrome options
 chrome_options = Options()
@@ -9,9 +10,9 @@ chrome_options.add_argument("--no-sandbox")
 chrome_options.add_argument("--disable-dev-shm-usage")
 chrome_options.binary_location = "/usr/bin/google-chrome"  # Standard Chrome location in Linux
 
-# Initialize Chrome WebDriver with direct ChromeDriver path
+# Initialize Chrome WebDriver
 driver = webdriver.Chrome(
-    service=Service(executable_path="/usr/local/bin/chromedriver"),
+    service=Service(),
     options=chrome_options
 )
 from flask import Flask, render_template, request, jsonify
