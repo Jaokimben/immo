@@ -4,6 +4,7 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 from dotenv import load_dotenv
 import os
 
@@ -42,10 +43,8 @@ def scrap_seloger():
     chrome_options.add_argument('--disable-dev-shm-usage')
     chrome_options.binary_location = os.getenv('GOOGLE_CHROME_BIN')
     
-    driver = webdriver.Chrome(
-        executable_path=os.getenv('CHROMEDRIVER_PATH'),
-        options=chrome_options
-    )
+    service = Service(executable_path=os.getenv('CHROMEDRIVER_PATH'))
+    driver = webdriver.Chrome(service=service, options=chrome_options)
     
     try:
         driver.get('https://www.seloger.com/recherche/achat/')
@@ -101,7 +100,9 @@ def recherche():
     if criteres['surface_max']:
         query = query.filter(Annonce.surface <= criteres['surface_max'])
     if criteres['localisation']:
-        query = query.filter(Annonce.localisation.ilike(f"%{criteres['localisation']}%"))
+        query = query.filter(
+            Annonce.localisation.ilike(f"%{criteres['localisation']}%")
+        )
     
     annonces = query.order_by(Annonce.date_ajout.desc()).all()
     return jsonify([{
