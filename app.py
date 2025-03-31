@@ -58,15 +58,56 @@ def scrap_seloger():
             driver.get(url)
             time.sleep(random.uniform(2, 4))  # Délai aléatoire
             
+            # Attendre que la page soit chargée
+            driver.implicitly_wait(10)
+            
+            # Sauvegarder le HTML pour debug
+            with open(f'seloger_{ville.lower()}.html', 'w', encoding='utf-8') as f:
+                f.write(driver.page_source)
+            
             soup = BeautifulSoup(driver.page_source, 'html.parser')
+            
+            # Essayer différents sélecteurs
             annonces = soup.find_all('div', {'data-test': 'sl.card-container'})
+            if not annonces:
+                annonces = soup.find_all('div', class_='c-pa-list')
+            if not annonces:
+                annonces = soup.find_all('div', class_='c-pa-cpt')
+            
+            print(f"Nombre d'annonces trouvées pour {ville}: {len(annonces)}")
             
             for annonce in annonces:
                 try:
-                    titre = annonce.find('div', {'data-test': 'sl.card-title'}).text.strip()
-                    prix = annonce.find('div', {'data-test': 'sl.card-price'}).text.strip()
-                    surface = annonce.find('div', {'data-test': 'sl.card-surface'}).text.strip()
-                    localisation = annonce.find('div', {'data-test': 'sl.card-location'}).text.strip()
+                    # Essayer différents sélecteurs pour chaque champ
+                    titre_elem = annonce.find('div', {'data-test': 'sl.card-title'}) or \
+                               annonce.find('h3', class_='c-pa-title') or \
+                               annonce.find('div', class_='c-pa-title')
+                    
+                    prix_elem = annonce.find('div', {'data-test': 'sl.card-price'}) or \
+                              annonce.find('div', class_='c-pa-price') or \
+                              annonce.find('span', class_='c-pa-price')
+                    
+                    surface_elem = annonce.find('div', {'data-test': 'sl.card-surface'}) or \
+                                 annonce.find('div', class_='c-pa-criterion') or \
+                                 annonce.find('span', class_='c-pa-criterion')
+                    
+                    localisation_elem = annonce.find('div', {'data-test': 'sl.card-location'}) or \
+                                      annonce.find('div', class_='c-pa-city') or \
+                                      annonce.find('span', class_='c-pa-city')
+                    
+                    if not all([titre_elem, prix_elem, surface_elem, localisation_elem]):
+                        print(f"Éléments manquants pour une annonce de {ville}")
+                        continue
+                    
+                    titre = titre_elem.text.strip()
+                    prix = prix_elem.text.strip()
+                    surface = surface_elem.text.strip()
+                    localisation = localisation_elem.text.strip()
+                    
+                    print(f"Annonce trouvée : {titre}")
+                    print(f"Prix : {prix}")
+                    print(f"Surface : {surface}")
+                    print(f"Localisation : {localisation}")
                     
                     if not Annonce.query.filter_by(titre=titre, source='SeLoger').first():
                         nouvelle_annonce = Annonce(
@@ -440,9 +481,14 @@ def recherche():
     
     print(f"Critères de recherche : {criteres}")
     
+    # Vérifier le nombre total d'annonces dans la base
+    total_annonces = Annonce.query.count()
+    print(f"Nombre total d'annonces dans la base : {total_annonces}")
+    
     query = Annonce.query
     
     if criteres['localisation']:
+        print(f"Recherche pour la localisation : {criteres['localisation']}")
         query = query.filter(
             db.or_(
                 Annonce.localisation.ilike(f"%{criteres['localisation']}%"),
@@ -450,9 +496,15 @@ def recherche():
                 Annonce.localisation.ilike(f"%{criteres['localisation'].upper()}%")
             )
         )
+        # Afficher la requête SQL générée
+        print(f"Requête SQL : {query}")
     
     annonces = query.order_by(Annonce.date_ajout.desc()).all()
     print(f"Nombre d'annonces trouvées : {len(annonces)}")
+    
+    # Afficher les premières annonces trouvées
+    for i, annonce in enumerate(annonces[:5]):
+        print(f"Annonce {i+1}: {annonce.titre} - {annonce.localisation}")
     
     # Filtrage des annonces en fonction des critères numériques
     annonces_filtrees = []
@@ -461,22 +513,29 @@ def recherche():
             # Extraction du prix numérique
             prix_str = ''.join(filter(str.isdigit, annonce.prix))
             prix = int(prix_str) if prix_str else 0
+            print(f"Prix extrait pour {annonce.titre}: {prix}")
             
             # Extraction de la surface numérique
             surface_str = ''.join(filter(str.isdigit, annonce.surface))
             surface = int(surface_str) if surface_str else 0
+            print(f"Surface extraite pour {annonce.titre}: {surface}")
             
             # Application des filtres
             if criteres['prix_min'] and prix < int(criteres['prix_min']):
+                print(f"Filtré par prix min: {prix} < {criteres['prix_min']}")
                 continue
             if criteres['prix_max'] and prix > int(criteres['prix_max']):
+                print(f"Filtré par prix max: {prix} > {criteres['prix_max']}")
                 continue
             if criteres['surface_min'] and surface < int(criteres['surface_min']):
+                print(f"Filtré par surface min: {surface} < {criteres['surface_min']}")
                 continue
             if criteres['surface_max'] and surface > int(criteres['surface_max']):
+                print(f"Filtré par surface max: {surface} > {criteres['surface_max']}")
                 continue
                 
             annonces_filtrees.append(annonce)
+            print(f"Annonce conservée après filtrage: {annonce.titre}")
         except Exception as e:
             print(f"Erreur lors du filtrage d'une annonce : {str(e)}")
             continue
@@ -499,13 +558,29 @@ def recherche():
 def actualiser():
     try:
         print("Début de l'actualisation des annonces")
+        print(f"Nombre d'annonces avant actualisation : {Annonce.query.count()}")
+        
         scrap_seloger()
+        print(f"Nombre d'annonces après SeLoger : {Annonce.query.count()}")
+        
         scrap_pap()
+        print(f"Nombre d'annonces après PAP : {Annonce.query.count()}")
+        
         scrap_leboncoin()
+        print(f"Nombre d'annonces après LeBonCoin : {Annonce.query.count()}")
+        
         scrap_orpi()
+        print(f"Nombre d'annonces après Orpi : {Annonce.query.count()}")
+        
         scrap_logicimmo()
+        print(f"Nombre d'annonces après Logic-Immo : {Annonce.query.count()}")
+        
         scrap_century21()
+        print(f"Nombre d'annonces après Century 21 : {Annonce.query.count()}")
+        
         scrap_nexity()
+        print(f"Nombre d'annonces après Nexity : {Annonce.query.count()}")
+        
         print("Fin de l'actualisation des annonces")
         return jsonify({'status': 'success'})
     except Exception as e:
@@ -550,6 +625,28 @@ def suggestions():
             .all()
     
     return jsonify([s[0] for s in suggestions])
+
+@app.route('/test_scraping')
+def test_scraping():
+    try:
+        print("Début du test de scraping")
+        print(f"Nombre d'annonces avant test : {Annonce.query.count()}")
+        
+        # Test avec SeLoger uniquement
+        scrap_seloger()
+        
+        print(f"Nombre d'annonces après test : {Annonce.query.count()}")
+        return jsonify({
+            'status': 'success',
+            'message': 'Test de scraping terminé',
+            'annonces_avant': Annonce.query.count()
+        })
+    except Exception as e:
+        print(f"Erreur lors du test de scraping : {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        })
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))

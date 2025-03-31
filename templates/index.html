@@ -74,6 +74,17 @@
             border-radius: 4px;
             background-color: #f8d7da;
         }
+        .debug-info {
+            display: none;
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 20px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            max-height: 300px;
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body>
@@ -82,9 +93,14 @@
             <a class="navbar-brand" href="#">
                 <i class="fas fa-home"></i> Agrégateur Immobilier
             </a>
-            <button class="btn btn-light" onclick="actualiserAnnonces()">
-                <i class="fas fa-sync"></i> Actualiser
-            </button>
+            <div class="ms-auto">
+                <button class="btn btn-warning me-2" onclick="testScraping()">
+                    <i class="fas fa-bug"></i> Test Scraping
+                </button>
+                <button class="btn btn-light" onclick="actualiserAnnonces()">
+                    <i class="fas fa-sync"></i> Actualiser
+                </button>
+            </div>
         </div>
     </nav>
 
@@ -191,6 +207,7 @@
                     <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
                 </div>
                 <div id="error" class="error-message"></div>
+                <div id="debug" class="debug-info"></div>
                 <div id="annonces" class="row g-4">
                     <!-- Les annonces seront injectées ici -->
                 </div>
@@ -221,6 +238,15 @@
             progressBar.style.width = percent + '%';
         }
 
+        function addDebugLog(message) {
+            const debugDiv = document.getElementById('debug');
+            debugDiv.style.display = 'block';
+            const logEntry = document.createElement('div');
+            logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            debugDiv.appendChild(logEntry);
+            debugDiv.scrollTop = debugDiv.scrollHeight;
+        }
+
         localisationInput.addEventListener('input', function() {
             clearTimeout(timeoutId);
             const query = this.value;
@@ -230,6 +256,7 @@
                 return;
             }
 
+            addDebugLog(`Recherche de suggestions pour : ${query}`);
             timeoutId = setTimeout(() => {
                 fetch(`/suggestions?q=${encodeURIComponent(query)}`)
                     .then(response => response.json())
@@ -241,6 +268,7 @@
                             div.textContent = 'Aucune suggestion trouvée';
                             div.style.color = '#6c757d';
                             suggestionsDiv.appendChild(div);
+                            addDebugLog('Aucune suggestion trouvée');
                         } else {
                             suggestions.forEach(suggestion => {
                                 const div = document.createElement('div');
@@ -249,15 +277,18 @@
                                 div.addEventListener('click', () => {
                                     localisationInput.value = suggestion;
                                     suggestionsDiv.style.display = 'none';
+                                    addDebugLog(`Suggestion sélectionnée : ${suggestion}`);
                                     rechercherAnnonces();
                                 });
                                 suggestionsDiv.appendChild(div);
                             });
+                            addDebugLog(`${suggestions.length} suggestions trouvées`);
                         }
                         suggestionsDiv.style.display = 'block';
                     })
                     .catch(error => {
                         showError('Erreur lors de la recherche des suggestions');
+                        addDebugLog(`Erreur suggestions : ${error}`);
                     });
             }, 300);
         });
@@ -283,6 +314,8 @@
                 surface_max: document.getElementById('surfaceMax').value
             });
 
+            addDebugLog(`Recherche avec les paramètres : ${params.toString()}`);
+
             fetch(`/recherche?${params}`)
                 .then(response => response.json())
                 .then(annonces => {
@@ -299,9 +332,11 @@
                                 </div>
                             </div>
                         `;
+                        addDebugLog('Aucune annonce trouvée');
                         return;
                     }
                     
+                    addDebugLog(`${annonces.length} annonces trouvées`);
                     annonces.forEach(annonce => {
                         const card = document.createElement('div');
                         card.className = 'col-md-6';
@@ -322,10 +357,12 @@
                             </div>
                         `;
                         container.appendChild(card);
+                        addDebugLog(`Annonce affichée : ${annonce.titre}`);
                     });
                 })
                 .catch(error => {
                     showError('Erreur lors de la recherche des annonces');
+                    addDebugLog(`Erreur recherche : ${error}`);
                 })
                 .finally(() => {
                     loadingDiv.style.display = 'none';
@@ -343,6 +380,7 @@
                 minute: '2-digit'
             };
             document.getElementById('lastUpdate').textContent = now.toLocaleDateString('fr-FR', options);
+            addDebugLog('Dernière mise à jour effectuée');
         }
 
         function actualiserAnnonces() {
@@ -350,20 +388,55 @@
             progressDiv.style.display = 'block';
             updateProgress(0);
             hideError();
+            addDebugLog('Début de l\'actualisation des annonces');
             
             fetch('/actualiser')
                 .then(response => response.json())
                 .then(data => {
                     if (data.status === 'success') {
                         updateProgress(100);
+                        addDebugLog('Actualisation réussie');
                         rechercherAnnonces();
                         updateLastUpdate();
                     } else {
                         showError(data.message || 'Erreur lors de l\'actualisation');
+                        addDebugLog(`Erreur actualisation : ${data.message}`);
                     }
                 })
                 .catch(error => {
                     showError('Erreur lors de l\'actualisation des annonces');
+                    addDebugLog(`Erreur actualisation : ${error}`);
+                })
+                .finally(() => {
+                    setTimeout(() => {
+                        progressDiv.style.display = 'none';
+                    }, 1000);
+                });
+        }
+
+        function testScraping() {
+            const progressDiv = document.getElementById('progress');
+            progressDiv.style.display = 'block';
+            updateProgress(0);
+            hideError();
+            addDebugLog('Début du test de scraping');
+            
+            fetch('/test_scraping')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        updateProgress(100);
+                        addDebugLog(`Test de scraping terminé. ${data.message}`);
+                        addDebugLog(`Nombre d'annonces : ${data.annonces_avant}`);
+                        rechercherAnnonces();
+                    } else {
+                        showError(data.message || 'Erreur lors du test de scraping');
+                        addDebugLog(`Erreur test scraping : ${data.message}`);
+                    }
+                })
+                .catch(error => {
+                    showError('Erreur lors du test de scraping');
+                    addDebugLog(`Erreur test scraping : ${error}`);
                 })
                 .finally(() => {
                     setTimeout(() => {
