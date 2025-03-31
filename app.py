@@ -94,55 +94,72 @@ def scrape_with_requests(url, headers=None, expected_format='html'):
 
 def get_paris_suggestions():
     """Get Paris suggestions from the website"""
+    url = "https://www.seloger.com/suggestions/paris"
+    
+    # 1. Try dedicated JSON endpoint
+    json_url = "https://api.seloger.com/suggestions/paris"
     try:
-        url = "https://www.seloger.com/suggestions/paris"
-        
-        # First attempt - try direct JSON API
-        try:
-            response = requests.get(
-                url,
-                headers={
-                    'Accept': 'application/json',
-                    'User-Agent': 'Mozilla/5.0'
-                },
-                timeout=10
-            )
-            if response.status_code == 200:
-                try:
-                    data = response.json()
-                    if isinstance(data, dict) and 'suggestions' in data:
-                        return data['suggestions']
-                except ValueError:
-                    pass  # Fall through to HTML parsing
-        except requests.RequestException:
-            pass  # Fall through to HTML parsing
+        response = requests.get(
+            json_url,
+            headers={
+                'Accept': 'application/json',
+                'User-Agent': 'Mozilla/5.0'
+            },
+            timeout=5
+        )
+        response.raise_for_status()
+        data = response.json()
+        if isinstance(data, dict) and data.get('suggestions'):
+            return data['suggestions'][:10]
+    except Exception as json_error:
+        logger.info(f"JSON API failed, falling back to HTML: {str(json_error)}")
 
-        # Second attempt - HTML parsing fallback
-        soup = scrape_with_requests(url)
+    # 2. Fallback to HTML scraping
+    try:
+        response = requests.get(
+            url,
+            headers={'User-Agent': 'Mozilla/5.0'},
+            timeout=10
+        )
+        response.raise_for_status()
+        
+        # Check if response is HTML before parsing
+        if 'text/html' not in response.headers.get('Content-Type', ''):
+            raise ValueError("Non-HTML response received")
+            
+        soup = BeautifulSoup(response.content, 'html.parser')
         suggestions = []
         
-        # Try multiple selector patterns
+        # Try multiple selector strategies
         selectors = [
-            '.suggestion-item',
-            '.autocomplete-item',
-            '[class*="suggestion"]',
-            '[class*="auto-complete"]',
-            '[class*="predictive"]',
-            'li > a',  # Common pattern for suggestion lists
-            'div > a'   # Another common pattern
+            {'type': 'css', 'pattern': '.suggestions-list li'},
+            {'type': 'css', 'pattern': '.autocomplete-items div'},
+            {'type': 'css', 'pattern': '[class*="suggestion"]'},
+            {'type': 'xpath', 'pattern': '//ul/li/a'},
         ]
         
         for selector in selectors:
-            items = soup.select(selector)
-            if items:
-                suggestions.extend(item.get_text(strip=True) for item in items if item.get_text(strip=True))
-                if suggestions:  # Stop at first successful selector
-                    break
-                    
-        return suggestions[:10]  # Return max 10 suggestions
+            try:
+                if selector['type'] == 'css':
+                    items = soup.select(selector['pattern'])
+                else:
+                    items = soup.xpath(selector['pattern'])
+                
+                if items:
+                    suggestions.extend(
+                        item.get_text().strip()
+                        for item in items
+                        if item.get_text().strip()
+                    )
+                    if suggestions:
+                        break
+            except Exception:
+                continue
+                
+        return list(set(suggestions))[:10]  # Dedupe and limit
         
-    except Exception as e:
-        logger.error(f"Error getting Paris suggestions: {str(e)}")
+    except Exception as html_error:
+        logger.error(f"HTML scraping failed: {str(html_error)}")
         return []
 
 def scrap_seloger():
