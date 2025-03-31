@@ -52,7 +52,8 @@ def scrap_seloger():
         # Ajout de plusieurs villes principales pour avoir plus de données
         villes = ['Paris', 'Lyon', 'Marseille', 'Bordeaux', 'Toulouse', 'Nantes', 'Lille']
         for ville in villes:
-            url = f'https://www.seloger.com/recherche/achat/{ville}/'
+            # Correction de l'URL pour SeLoger
+            url = f'https://www.seloger.com/achat/immobilier/{ville}/'
             driver.get(url)
             driver.implicitly_wait(10)
             
@@ -108,20 +109,39 @@ def recherche():
     
     query = Annonce.query
     
-    if criteres['prix_min']:
-        query = query.filter(Annonce.prix >= criteres['prix_min'])
-    if criteres['prix_max']:
-        query = query.filter(Annonce.prix <= criteres['prix_max'])
-    if criteres['surface_min']:
-        query = query.filter(Annonce.surface >= criteres['surface_min'])
-    if criteres['surface_max']:
-        query = query.filter(Annonce.surface <= criteres['surface_max'])
     if criteres['localisation']:
         query = query.filter(
-            Annonce.localisation.ilike(f"%{criteres['localisation']}%")
+            db.or_(
+                Annonce.localisation.ilike(f"%{criteres['localisation']}%"),
+                Annonce.localisation.ilike(f"%{criteres['localisation'].capitalize()}%"),
+                Annonce.localisation.ilike(f"%{criteres['localisation'].upper()}%")
+            )
         )
     
     annonces = query.order_by(Annonce.date_ajout.desc()).all()
+    
+    # Filtrage des annonces en fonction des critères numériques
+    annonces_filtrees = []
+    for annonce in annonces:
+        # Extraction du prix numérique
+        prix_str = ''.join(filter(str.isdigit, annonce.prix))
+        prix = int(prix_str) if prix_str else 0
+        
+        # Extraction de la surface numérique
+        surface_str = ''.join(filter(str.isdigit, annonce.surface))
+        surface = int(surface_str) if surface_str else 0
+        
+        # Application des filtres
+        if criteres['prix_min'] and prix < int(criteres['prix_min']):
+            continue
+        if criteres['prix_max'] and prix > int(criteres['prix_max']):
+            continue
+        if criteres['surface_min'] and surface < int(criteres['surface_min']):
+            continue
+        if criteres['surface_max'] and surface > int(criteres['surface_max']):
+            continue
+            
+        annonces_filtrees.append(annonce)
     
     # Ajout d'un délai artificiel de 1 seconde
     time.sleep(1)
@@ -133,7 +153,7 @@ def recherche():
         'localisation': a.localisation,
         'source': a.source,
         'url': a.url
-    } for a in annonces])
+    } for a in annonces_filtrees])
 
 @app.route('/actualiser')
 def actualiser():
