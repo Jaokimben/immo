@@ -1,48 +1,30 @@
 from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-import os
+from selenium.webdriver.firefox.options import Options
 import logging
-import chromedriver_autoinstaller
+from selenium.webdriver.firefox.service import Service
+from webdriver_manager.firefox import GeckoDriverManager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Possible Chrome binary locations
-CHROME_PATHS = [
-    "/usr/bin/google-chrome",
-    "/usr/bin/google-chrome-stable",
-    "/usr/bin/chromium",
-    "/usr/bin/chromium-browser",
-    "/usr/local/bin/chrome",
-    "/opt/google/chrome/chrome"
-]
-
-def find_chrome_binary():
-    """Find Chrome/Chromium binary location"""
-    for path in CHROME_PATHS:
-        if os.path.exists(path):
-            logger.info(f"Found Chrome at: {path}")
-            return path
-    raise RuntimeError("No Chrome/Chromium binary found in standard locations")
-
 def init_webdriver():
-    """Initialize WebDriver with robust error handling"""
+    """Initialize WebDriver using Railway's native Firefox"""
     try:
-        # Configure ChromeDriver
-        chromedriver_autoinstaller.install()
+        # Configure Firefox options
+        firefox_options = Options()
+        firefox_options.add_argument("--headless")
         
-        # Find Chrome binary
-        chrome_path = find_chrome_binary()
-        
-        # Configure Chrome options
-        chrome_options = Options()
-        chrome_options.add_argument("--headless=new")
-        chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--disable-dev-shm-usage")
-        chrome_options.add_argument("--disable-gpu")
-        chrome_options.binary_location = chrome_path
+        # Use Railway's native Firefox with automatic driver management
+        driver = webdriver.Firefox(
+            service=Service(GeckoDriverManager().install()),
+            options=firefox_options
+        )
+        logger.info("WebDriver initialized successfully")
+        return driver
+    except Exception as e:
+        logger.error(f"Failed to initialize WebDriver: {str(e)}")
+        raise
         
         # Initialize WebDriver with automatic driver management
         driver = webdriver.Chrome(

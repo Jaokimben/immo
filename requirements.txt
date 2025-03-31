@@ -7,5 +7,4 @@ python-dotenv==1.0.1
 flask-sqlalchemy==3.1.1
 gunicorn==21.2.0
 psycopg2-binary==2.9.9
-chromedriver-autoinstaller==0.4.0
-pyvirtualdisplay==3.0
+webdriver-manager==3.8.6
