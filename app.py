@@ -10,6 +10,7 @@ import os
 import time
 from sqlalchemy import or_
 import random
+import requests
 
 load_dotenv()
 
@@ -40,20 +41,14 @@ with app.app_context():
 
 def scrap_seloger():
     print("Début du scraping SeLoger")
-    chrome_options = Options()
-    chrome_options.add_argument('--headless')
-    chrome_options.add_argument('--no-sandbox')
-    chrome_options.add_argument('--disable-dev-shm-usage')
-    chrome_options.add_argument('--disable-gpu')
-    chrome_options.add_argument('--window-size=1920,1080')
-    chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
-    
-    try:
-        driver = webdriver.Chrome(options=chrome_options)
-        print("ChromeDriver initialisé avec succès")
-    except Exception as e:
-        print(f"Erreur lors de l'initialisation de ChromeDriver : {str(e)}")
-        return
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'fr,fr-FR;q=0.8,en-US;q=0.5,en;q=0.3',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'Cache-Control': 'max-age=0'
+    }
     
     try:
         villes = ['Paris', 'Lyon', 'Marseille', 'Bordeaux', 'Toulouse', 'Nantes', 'Lille']
@@ -63,19 +58,16 @@ def scrap_seloger():
             print(f"URL : {url}")
             
             try:
-                driver.get(url)
-                print("Page chargée avec succès")
-                time.sleep(random.uniform(2, 4))  # Délai aléatoire
-                
-                # Attendre que la page soit chargée
-                driver.implicitly_wait(10)
+                response = requests.get(url, headers=headers)
+                response.raise_for_status()
+                print(f"Page chargée avec succès (status: {response.status_code})")
                 
                 # Sauvegarder le HTML pour debug
                 with open(f'seloger_{ville.lower()}.html', 'w', encoding='utf-8') as f:
-                    f.write(driver.page_source)
+                    f.write(response.text)
                 print(f"HTML sauvegardé dans seloger_{ville.lower()}.html")
                 
-                soup = BeautifulSoup(driver.page_source, 'html.parser')
+                soup = BeautifulSoup(response.text, 'html.parser')
                 
                 # Essayer différents sélecteurs pour les annonces
                 annonces = soup.find_all('div', {'data-test': 'sl.card-container'})
@@ -154,6 +146,9 @@ def scrap_seloger():
                 
                 time.sleep(random.uniform(1, 3))  # Délai entre les villes
                 
+            except requests.RequestException as e:
+                print(f"Erreur lors de la requête HTTP pour {ville} : {str(e)}")
+                continue
             except Exception as e:
                 print(f"Erreur lors du scraping de {ville} : {str(e)}")
                 continue
@@ -164,12 +159,6 @@ def scrap_seloger():
     
     except Exception as e:
         print(f"Erreur lors du scraping SeLoger : {str(e)}")
-    finally:
-        try:
-            driver.quit()
-            print("ChromeDriver fermé avec succès")
-        except Exception as e:
-            print(f"Erreur lors de la fermeture de ChromeDriver : {str(e)}")
 
 def scrap_pap():
     print("Début du scraping PAP")
