@@ -264,8 +264,9 @@ def index():
 
 @app.route('/recherche')
 def recherche():
-    # Search logic here
-    return jsonify([])
+    max_budget = request.args.get('max_budget')
+    min_surface = request.args.get('min_surface')
+    return jsonify({'max_budget': max_budget, 'min_surface': min_surface})
 
 @app.route('/suggestions')
 def suggestions():
